@@ -1,0 +1,247 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "./node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model AINotes {
+  note_id        String            @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  user_id        String            @db.VarChar(36)
+  module_id      String            @db.VarChar(36)
+  note_type      AINotes_note_type
+  content        String            @db.LongText
+  created_at     DateTime?         @default(now()) @db.Timestamp(0)
+  sequence_order Int
+  Users          Users             @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction, map: "ainotes_ibfk_1")
+  Modules        Modules           @relation(fields: [module_id], references: [module_id], onDelete: Cascade, onUpdate: NoAction, map: "ainotes_ibfk_2")
+
+  @@index([module_id, note_type], map: "idx_module_type")
+  @@index([user_id, module_id, sequence_order], map: "idx_user_module_order")
+}
+
+model CVs {
+  cv_id          String              @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  user_id        String              @db.VarChar(36)
+  cv_name        String              @db.VarChar(100)
+  template_style CVs_template_style? @default(modern)
+  personal_info  Json?
+  education      Json?
+  experience     Json?
+  skills         Json?
+  projects       Json?
+  pdf_url        String?             @db.VarChar(500)
+  created_at     DateTime?           @default(now()) @db.Timestamp(0)
+  updated_at     DateTime?           @default(now()) @db.Timestamp(0)
+  Users          Users               @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction, map: "cvs_ibfk_1")
+
+  @@index([user_id, created_at], map: "idx_user_date")
+}
+
+model Certificates {
+  certificate_id   String    @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  user_id          String    @db.VarChar(36)
+  roadmap_id       String    @db.VarChar(36)
+  certificate_name String    @db.VarChar(100)
+  issue_date       DateTime? @default(now()) @db.Timestamp(0)
+  pdf_url          String?   @db.VarChar(500)
+  Users            Users     @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction, map: "certificates_ibfk_1")
+  Roadmaps         Roadmaps  @relation(fields: [roadmap_id], references: [roadmap_id], onDelete: Cascade, onUpdate: NoAction, map: "certificates_ibfk_2")
+
+  @@unique([user_id, roadmap_id], map: "uq_cert_user_roadmap")
+  @@index([user_id, roadmap_id], map: "idx_user_roadmap")
+  @@index([roadmap_id], map: "roadmap_id")
+}
+
+model Exercises {
+  exercise_id   String                @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  module_id     String                @db.VarChar(36)
+  title         String                @db.VarChar(100)
+  description   String                @db.Text
+  examples      Json?
+  starter_code  String?               @db.MediumText
+  solution_code String?               @db.MediumText
+  difficulty    Exercises_difficulty? @default(medium)
+  created_at    DateTime?             @default(now()) @db.Timestamp(0)
+  updated_at    DateTime?             @default(now()) @db.Timestamp(0)
+  Modules       Modules               @relation(fields: [module_id], references: [module_id], onDelete: Cascade, onUpdate: NoAction, map: "exercises_ibfk_1")
+
+  @@index([module_id, difficulty], map: "idx_module_difficulty")
+}
+
+model InterviewSessions {
+  session_id     String                           @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  user_id        String                           @db.VarChar(36)
+  session_name   String                           @db.VarChar(100)
+  interview_type InterviewSessions_interview_type
+  questions      Json
+  user_answers   Json?
+  ai_feedback    Json?
+  score          Decimal?                         @db.Decimal(5, 2)
+  created_at     DateTime?                        @default(now()) @db.Timestamp(0)
+  Users          Users                            @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction, map: "interviewsessions_ibfk_1")
+
+  @@index([user_id, created_at], map: "idx_user_date")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model LearningEvents {
+  event_id         String                 @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  user_id          String                 @db.VarChar(36)
+  title            String                 @default("Study Session") @db.VarChar(150)
+  description      String?                @db.MediumText
+  status           LearningEvents_status? @default(planned)
+  start_utc        DateTime               @db.DateTime(0)
+  end_utc          DateTime               @db.DateTime(0)
+  all_day          Boolean?               @default(false)
+  timezone         String?                @default("Asia/Ho_Chi_Minh") @db.VarChar(50)
+  module_id        String?                @db.VarChar(36)
+  color            String?                @default("#3B82F6") @db.VarChar(7)
+  is_ai_suggested  Boolean?               @default(false)
+  reminder_minutes Int?                   @db.SmallInt
+  is_deleted       Boolean?               @default(false)
+  created_at       DateTime?              @default(now()) @db.Timestamp(0)
+  updated_at       DateTime?              @default(now()) @db.Timestamp(0)
+  Users            Users                  @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction, map: "learningevents_ibfk_1")
+  Modules          Modules?               @relation(fields: [module_id], references: [module_id], onUpdate: NoAction, map: "learningevents_ibfk_2")
+
+  @@index([user_id, is_ai_suggested], map: "idx_ai_suggested")
+  @@index([module_id], map: "idx_module")
+  @@index([user_id, start_utc], map: "idx_user_start")
+}
+
+model Modules {
+  module_id       String           @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  roadmap_id      String           @db.VarChar(36)
+  title           String           @db.VarChar(100)
+  description     String?          @db.Text
+  content         String?          @db.LongText
+  order_index     Int
+  estimated_hours Decimal?         @db.Decimal(4, 1)
+  created_at      DateTime?        @default(now()) @db.Timestamp(0)
+  updated_at      DateTime?        @default(now()) @db.Timestamp(0)
+  AINotes         AINotes[]
+  Exercises       Exercises[]
+  LearningEvents  LearningEvents[]
+  Roadmaps        Roadmaps         @relation(fields: [roadmap_id], references: [roadmap_id], onDelete: Cascade, onUpdate: NoAction, map: "modules_ibfk_1")
+  UserProgress    UserProgress[]
+
+  @@unique([roadmap_id, order_index], map: "uq_roadmap_order")
+  @@index([roadmap_id, order_index], map: "idx_roadmap_order")
+}
+
+model Roadmaps {
+  roadmap_id   String          @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  title        String          @db.VarChar(100)
+  description  String?         @db.Text
+  category     String          @db.VarChar(50)
+  image_url    String?         @db.VarChar(500)
+  created_by   String          @db.VarChar(36)
+  status       Roadmaps_status @default(draft)
+  created_at   DateTime?       @default(now()) @db.Timestamp(0)
+  updated_at   DateTime?       @default(now()) @db.Timestamp(0)
+  Certificates Certificates[]
+  Modules      Modules[]
+  Users        Users           @relation(fields: [created_by], references: [user_id], onDelete: NoAction, onUpdate: NoAction, map: "roadmaps_ibfk_1")
+
+  @@index([created_by], map: "created_by")
+  @@index([category], map: "idx_category")
+}
+
+model UserProgress {
+  progress_id           String               @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  user_id               String               @db.VarChar(36)
+  module_id             String               @db.VarChar(36)
+  status                UserProgress_status? @default(not_started)
+  completion_percentage Decimal?             @default(0.00) @db.Decimal(5, 2)
+  started_at            DateTime?            @db.Timestamp(0)
+  completed_at          DateTime?            @db.Timestamp(0)
+  last_accessed_at      DateTime?            @default(now()) @db.Timestamp(0)
+  Users                 Users                @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction, map: "userprogress_ibfk_1")
+  Modules               Modules              @relation(fields: [module_id], references: [module_id], onDelete: Cascade, onUpdate: NoAction, map: "userprogress_ibfk_2")
+
+  @@unique([user_id, module_id], map: "unique_user_module")
+  @@index([user_id, status], map: "idx_user_status")
+  @@index([module_id], map: "module_id")
+}
+
+model Users {
+  user_id           String               @id @default(dbgenerated("(uuid())")) @db.VarChar(36)
+  email             String               @unique(map: "email") @db.VarChar(255)
+  password_hash     String               @db.VarChar(255)
+  full_name         String               @db.VarChar(100)
+  current_level     Users_current_level? @default(beginner)
+  role              Users_role           @default(user)
+  avatar_url        String?              @db.VarChar(500)
+  created_at        DateTime?            @default(now()) @db.Timestamp(0)
+  updated_at        DateTime?            @default(now()) @db.Timestamp(0)
+  AINotes           AINotes[]
+  CVs               CVs[]
+  Certificates      Certificates[]
+  InterviewSessions InterviewSessions[]
+  LearningEvents    LearningEvents[]
+  Roadmaps          Roadmaps[]
+  UserProgress      UserProgress[]
+
+  @@index([email], map: "idx_email")
+}
+
+enum AINotes_note_type {
+  summary
+  hint
+  explanation
+  feedback
+  user_question
+  ai_response
+}
+
+enum CVs_template_style {
+  modern
+  classic
+  minimal
+}
+
+enum UserProgress_status {
+  not_started
+  in_progress
+  completed
+}
+
+enum InterviewSessions_interview_type {
+  simulated
+  prep_feedback
+}
+
+enum Users_current_level {
+  beginner
+  intermediate
+  advanced
+}
+
+enum LearningEvents_status {
+  planned
+  done
+  missed
+  cancelled
+}
+
+enum Users_role {
+  user
+  admin
+  creator
+}
+
+enum Roadmaps_status {
+  draft
+  published
+  archived
+}
+
+enum Exercises_difficulty {
+  easy
+  medium
+  hard
+}

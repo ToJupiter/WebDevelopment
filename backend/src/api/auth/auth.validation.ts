@@ -9,6 +9,11 @@ export interface ValidationError {
   message: string;
 }
 
+export interface LoginInput {
+  email: string;
+  password: string;
+}
+
 export function validateRegisterInput(input: RegisterInput): ValidationError[] {
   const errors: ValidationError[] = [];
 

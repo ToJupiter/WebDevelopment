@@ -1,6 +1,6 @@
 import { listPublishedRoadmaps, getRoadmapWithModules, enrollUserInRoadmap } from '@/api/roadmaps/roadmaps.services';
 import prisma from '@/services/prisma.service';
-import { Status } from '@prisma/client';
+import { Status } from '@/generated/prisma/client';
 
 jest.mock('@/services/prisma.service', () => ({
   roadmap: {

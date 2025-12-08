@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { Prisma } from '@/generated/prisma/client';
 import prisma from '@/services/prisma.service';
 
 export async function listExercises(moduleId?: string) {

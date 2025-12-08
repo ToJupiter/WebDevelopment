@@ -8,7 +8,7 @@ const parsed_mysql = parseMySQLEnv();
 const mysql_adapter = new PrismaMariaDb({
     host: parsed_mysql.host,
     port: parsed_mysql.port,
-    connectionLimit: 5
+    connectionLimit: 10
 });
 
 const prisma = new PrismaClient({

@@ -12,7 +12,9 @@ function extractUserId(req: Request) {
 
 export async function listEventsHandler(req: Request, res: Response) {
   try {
-    const userId = extractUserId(req);
+    // const userId = extractUserId(req);
+    const userId = req.user?.user_id;
+    
     if (!userId) {
       return res.status(401).json({ success: false, data: null, error: 'Unauthorized' });
     }
@@ -35,7 +37,9 @@ export async function listEventsHandler(req: Request, res: Response) {
 
 export async function createEventHandler(req: Request, res: Response) {
   try {
-    const userId = extractUserId(req);
+    // const userId = extractUserId(req);
+    const userId = req.user?.user_id;
+
     if (!userId) {
       return res.status(401).json({ success: false, data: null, error: 'Unauthorized' });
     }
@@ -48,7 +52,9 @@ export async function createEventHandler(req: Request, res: Response) {
 
 export async function updateEventHandler(req: Request, res: Response) {
   try {
-    const userId = extractUserId(req);
+    // const userId = extractUserId(req);
+    const userId = req.user?.user_id;
+
     if (!userId) {
       return res.status(401).json({ success: false, data: null, error: 'Unauthorized' });
     }
@@ -65,7 +71,9 @@ export async function updateEventHandler(req: Request, res: Response) {
 
 export async function deleteEventHandler(req: Request, res: Response) {
   try {
-    const userId = extractUserId(req);
+    // const userId = extractUserId(req);
+    const userId = req.user?.user_id;
+
     if (!userId) {
       return res.status(401).json({ success: false, data: null, error: 'Unauthorized' });
     }

@@ -1,5 +1,5 @@
 import { validateCVCreation, validateCVUpdate, validateCVOptimization} from '@/api/cvs/cvs.validation';
-import { TemplateStyle } from '@prisma/client';
+import { TemplateStyle } from '@/generated/prisma/client';
 
 describe('CV Validation', () => {
   describe('validateCVCreation', () => {

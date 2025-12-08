@@ -1,5 +1,5 @@
 import { validateProgressUpdate } from '@/api/progress/progress.validation';
-import { ProgressStatus } from '@prisma/client';
+import { ProgressStatus } from '@/generated/prisma/client';
 
 describe('validateProgressUpdate', () => {
   it('should return no errors for valid input', () => {

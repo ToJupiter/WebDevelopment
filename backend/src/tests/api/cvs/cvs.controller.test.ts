@@ -1,7 +1,7 @@
 import { listCVsHandler, createCVHandler, updateCVHandler, optimizeCVHandler } from '@/api/cvs/cvs.controller';
 import { listUserCVs, createCV, updateCV, optimizeCVSection } from '@/api/cvs/cvs.services';
 import { Request, Response } from 'express';
-import { TemplateStyle } from '@prisma/client';
+import { TemplateStyle } from '@/generated/prisma/client';
 
 jest.mock('@/api/cvs/cvs.services');
 

@@ -1,4 +1,4 @@
-import { TemplateStyle } from '@prisma/client';
+import { TemplateStyle } from '@/generated/prisma/client';
 import { ValidationError } from '@/api/auth/auth.validation';
 import { templateStyles } from './cvs.services';
 

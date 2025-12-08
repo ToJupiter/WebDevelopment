@@ -1,6 +1,7 @@
 import { findModuleProgress, updateModuleProgress } from '@/api/progress/progress.services';
+import { PrismaClient } from '@/generated/prisma/client';
+import { ProgressStatus } from '@/generated/prisma/client';
 import prisma from '@/services/prisma.service';
-import { ProgressStatus } from '@prisma/client';
 
 jest.mock('@/services/prisma.service', () => ({
   userProgress: {

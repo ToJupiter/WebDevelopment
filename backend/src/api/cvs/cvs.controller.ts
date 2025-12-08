@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { TemplateStyle } from '@prisma/client';
+import { TemplateStyle } from '@/generated/prisma/client';
 import { createCV, listUserCVs, optimizeCVSection, updateCV } from './cvs.services';
 
 function extractUserId(req: Request) {
@@ -12,7 +12,9 @@ function extractUserId(req: Request) {
 
 export async function listCVsHandler(req: Request, res: Response) {
   try {
-    const userId = extractUserId(req);
+    // const userId = extractUserId(req);
+    const userId = req.user?.user_id;
+
     if (!userId) {
       return res.status(401).json({ success: false, data: null, error: 'Unauthorized' });
     }
@@ -25,7 +27,9 @@ export async function listCVsHandler(req: Request, res: Response) {
 
 export async function createCVHandler(req: Request, res: Response) {
   try {
-    const userId = extractUserId(req);
+    // const userId = extractUserId(req);
+    const userId = req.user?.user_id;
+
     if (!userId) {
       return res.status(401).json({ success: false, data: null, error: 'Unauthorized' });
     }
@@ -46,7 +50,9 @@ export async function createCVHandler(req: Request, res: Response) {
 
 export async function updateCVHandler(req: Request, res: Response) {
   try {
-    const userId = extractUserId(req);
+    // const userId = extractUserId(req);
+    const userId = req.user?.user_id;
+
     if (!userId) {
       return res.status(401).json({ success: false, data: null, error: 'Unauthorized' });
     }

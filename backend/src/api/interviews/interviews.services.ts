@@ -1,4 +1,4 @@
-import { InterviewType, Prisma } from '@prisma/client';
+import { InterviewType, Prisma } from '@/generated/prisma/client';
 import prisma from '@/services/prisma.service';
 import { createChatCompletion, extractFirstMessageContent, ChatMessage } from '@/services/groq.service';
 

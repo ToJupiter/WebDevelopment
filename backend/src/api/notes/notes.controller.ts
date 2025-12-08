@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { NoteType } from '@prisma/client';
+import { NoteType } from '@/generated/prisma/client';
 import { createChatCompletion, extractFirstMessageContent, ChatMessage } from '@/services/groq.service';
 import { createModuleNote, getModuleById, getNextSequenceOrder, listModuleNotes } from './notes.services';
 
@@ -13,7 +13,9 @@ function extractUserId(req: Request) {
 
 export async function aiChatHandler(req: Request, res: Response) {
   try {
-    const userId = extractUserId(req);
+    // const userId = extractUserId(req);
+    const userId = req.user?.user_id;
+
     if (!userId) {
       return res.status(401).json({ success: false, data: null, error: 'Unauthorized' });
     }
@@ -45,7 +47,9 @@ export async function aiChatHandler(req: Request, res: Response) {
 
 export async function listNotesHandler(req: Request, res: Response) {
   try {
-    const userId = extractUserId(req);
+    // const userId = extractUserId(req);
+    const userId = req.user?.user_id;
+
     if (!userId) {
       return res.status(401).json({ success: false, data: null, error: 'Unauthorized' });
     }

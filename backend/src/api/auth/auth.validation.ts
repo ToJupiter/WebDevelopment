@@ -1,3 +1,5 @@
+import { error } from "node:console";
+
 export interface RegisterInput {
   full_name: string;
   email: string;
@@ -38,5 +40,12 @@ export function validateRegisterInput(input: RegisterInput): ValidationError[] {
     });
   }
 
+  return errors;
+}
+
+export function validateLoginInput(input: LoginInput): ValidationError[] {
+  const errors: ValidationError[] = [];
+  if (!input.email) errors.push({ field: 'email', message: 'Email is required' });
+  if (!input.password) errors.push({ field: 'password', message: 'Password is required' });
   return errors;
 }

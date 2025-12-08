@@ -1,4 +1,4 @@
-import { Prisma, TemplateStyle } from '@prisma/client';
+import { Prisma, TemplateStyle } from '@/generated/prisma/client';
 import prisma from '@/services/prisma.service';
 
 export const templateStyles: TemplateStyle[] = ['modern', 'classic', 'minimal'];

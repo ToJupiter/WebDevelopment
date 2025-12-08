@@ -1,4 +1,4 @@
-import { InterviewType } from '@prisma/client';
+import { InterviewType } from '@/generated/prisma/client';
 import { ValidationError } from '../auth/auth.validation';
 
 const ALLOWED_TYPES: InterviewType[] = ['simulated', 'prep_feedback'];

@@ -1,4 +1,4 @@
-import { Prisma, LearningEvent, EventStatus } from '@prisma/client';
+import { Prisma, LearningEvent, EventStatus } from '@/generated/prisma/client';
 import prisma from '@/services/prisma.service';
 
 type EventFilters = {

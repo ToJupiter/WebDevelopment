@@ -1,4 +1,4 @@
-import { NoteType } from '@prisma/client';
+import { NoteType } from '@/generated/prisma/client';
 import prisma from '@/services/prisma.service';
 
 export async function getModuleById(moduleId: string) {

@@ -1,5 +1,17 @@
 import { PrismaClient } from '@/generated/prisma/client';
 import * as dotenv from 'dotenv';
+import {PrismaMariaDb} from '@prisma/adapter-mariadb';
+
+const parsed_mysql = parseMySQLEnv();
+const mysql_adapter = new PrismaMariaDb({
+    host: parsed_mysql.host,
+    port: parsed_mysql.port,
+    connectionLimit: 10
+});
+
+export const prisma = new PrismaClient({
+    adapter: mysql_adapter
+});
 
 dotenv.config();
 
@@ -33,3 +45,5 @@ export function parseMySQLEnv(): MySQLConfig {
     database
   };
 }
+
+export default prisma;

@@ -1,4 +1,4 @@
-import { Status } from '@prisma/client';
+import { Status } from '@/generated/prisma/client';
 import prisma from '@/services/prisma.service';
 
 export async function listPublishedRoadmaps(category?: string) {

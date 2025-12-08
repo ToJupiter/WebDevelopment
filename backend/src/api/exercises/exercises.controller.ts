@@ -21,7 +21,9 @@ export async function listExercisesHandler(req: Request, res: Response) {
 
 export async function createExerciseHandler(req: Request, res: Response) {
   try {
-    const userId = extractUserId(req);
+    // const userId = extractUserId(req);
+    const userId = req.user?.user_id;
+
     if (!userId) {
       return res.status(401).json({ success: false, data: null, error: 'Unauthorized' });
     }
@@ -40,7 +42,9 @@ export async function createExerciseHandler(req: Request, res: Response) {
 
 export async function updateExerciseHandler(req: Request, res: Response) {
   try {
-    const userId = extractUserId(req);
+    // const userId = extractUserId(req);
+    const userId = req.user?.user_id;
+
     if (!userId) {
       return res.status(401).json({ success: false, data: null, error: 'Unauthorized' });
     }
@@ -62,7 +66,9 @@ export async function updateExerciseHandler(req: Request, res: Response) {
 
 export async function deleteExerciseHandler(req: Request, res: Response) {
   try {
-    const userId = extractUserId(req);
+    // const userId = extractUserId(req);
+    const userId = req.user?.user_id;
+
     if (!userId) {
       return res.status(401).json({ success: false, data: null, error: 'Unauthorized' });
     }
@@ -79,7 +85,9 @@ export async function deleteExerciseHandler(req: Request, res: Response) {
 
 export async function submitExerciseHandler(req: Request, res: Response) {
   try {
-    const userId = extractUserId(req);
+    // const userId = extractUserId(req);
+    const userId = req.user?.user_id;
+
     const { exerciseId } = req.params;
     const submission = await submitExercise(exerciseId, {
       answer_text: req.body.answer_text,

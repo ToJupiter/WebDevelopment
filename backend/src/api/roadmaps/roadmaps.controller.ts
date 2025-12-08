@@ -42,7 +42,9 @@ export async function enrollRoadmapHandler(req: Request, res: Response) {
     if (!isValidRoadmapId(roadmapId)) {
       return res.status(400).json({ success: false, data: null, error: 'Invalid roadmap identifier' });
     }
-    const userId = extractUserId(req);
+    // const userId = extractUserId(req);
+    const userId = req.user?.user_id;
+
     if (!userId) {
       return res.status(401).json({ success: false, data: null, error: 'Unauthorized' });
     }

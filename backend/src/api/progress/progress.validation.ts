@@ -1,4 +1,4 @@
-import { ProgressStatus } from '@prisma/client';
+import { ProgressStatus } from '@/generated/prisma/client';
 import { ValidationError } from '@/api/auth/auth.validation';
 
 const allowedStatuses: ProgressStatus[] = ['not_started', 'in_progress', 'completed'];

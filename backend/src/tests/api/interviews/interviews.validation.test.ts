@@ -1,5 +1,5 @@
 import { validateInterviewCreation, validateInterviewSubmission } from '@/api/interviews/interviews.validation';
-import { InterviewType } from '@prisma/client';
+import { InterviewType } from '@/generated/prisma/client';
 
 describe('Interviews Validation', () => {
   describe('validateInterviewCreation', () => {

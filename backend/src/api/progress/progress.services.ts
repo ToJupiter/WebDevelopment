@@ -1,4 +1,4 @@
-import { ProgressStatus } from '@prisma/client';
+import { ProgressStatus } from '@/generated/prisma/client';
 import prisma from '@/services/prisma.service';
 
 export async function findModuleProgress(userId: string, moduleId: string) {

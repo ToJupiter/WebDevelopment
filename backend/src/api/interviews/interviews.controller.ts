@@ -16,7 +16,9 @@ function extractUserId(req: Request) {
 
 export async function startInterviewHandler(req: Request, res: Response) {
   try {
-    const userId = extractUserId(req);
+    // const userId = extractUserId(req);
+    const userId = req.user?.user_id;
+
     if (!userId) {
       return res.status(401).json({ success: false, data: null, error: 'Unauthorized' });
     }
@@ -39,7 +41,9 @@ export async function startInterviewHandler(req: Request, res: Response) {
 
 export async function submitInterviewHandler(req: Request, res: Response) {
   try {
-    const userId = extractUserId(req);
+    // const userId = extractUserId(req);
+    const userId = req.user?.user_id;
+
     if (!userId) {
       return res.status(401).json({ success: false, data: null, error: 'Unauthorized' });
     }
@@ -65,7 +69,9 @@ export async function submitInterviewHandler(req: Request, res: Response) {
 
 export async function listInterviewsHandler(req: Request, res: Response) {
   try {
-    const userId = extractUserId(req);
+    // const userId = extractUserId(req);
+    const userId = req.user?.user_id;
+
     if (!userId) {
       return res.status(401).json({ success: false, data: null, error: 'Unauthorized' });
     }

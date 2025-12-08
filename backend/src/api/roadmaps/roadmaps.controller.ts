@@ -1,6 +1,9 @@
 import { Request, Response } from 'express';
 import { listPublishedRoadmaps, getRoadmapWithModules, enrollUserInRoadmap } from './roadmaps.services';
 import { isValidRoadmapId } from './roadmaps.validation';
+import { Status } from '@/generated/prisma/client';
+import prisma from '@/services/prisma.service';
+
 
 function extractUserId(req: Request) {
   const header = req.headers['x-user-id'];
@@ -55,5 +58,54 @@ export async function enrollRoadmapHandler(req: Request, res: Response) {
     return res.status(201).json({ success: true, data: result, error: null });
   } catch (error) {
     return res.status(500).json({ success: false, data: null, error: 'Internal Server Error' });
+  }
+}
+
+
+export async function createRoadmapHandler(req: Request, res: Response) {
+  try {
+    const userId = req.user?.user_id;
+
+    if (!req.body.title || !req.body.category) {
+        return res.status(400).json({ success: false, error: "Title and Category are required" });
+    }
+
+    const roadmap = await prisma.roadmap.create({
+      data: {
+        title: req.body.title,
+        description: req.body.description,
+        category: req.body.category,
+        image_url: req.body.image_url,
+        created_by: userId!, 
+        status: Status.published // Defaulting to published for demo speed
+      }
+    });
+    return res.status(201).json({ success: true, data: roadmap });
+  }
+  catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, error: 'Internal Server Error' });
+  }
+}
+
+export async function createModuleHandler(req: Request, res: Response) {
+  try {
+    const {roadmapId} = req.params;
+
+    const moduleData = await prisma.module.create({
+      data: {
+        roadmap_id: roadmapId,
+        title: req.body.title,
+        description: req.body.description,
+        content: req.body.content || "Placeholder content",
+        order_index: req.body.order_index || 1,
+        estimated_hours: req.body.estimated_hours || 1
+    }
+  });
+    return res.status(201).json({ success: true, data: moduleData });
+}
+  catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, error: 'Internal Server Error' });
   }
 }

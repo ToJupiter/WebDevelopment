@@ -16,7 +16,7 @@ mysql -u root -p -e "CREATE DATABASE ai_app;"
 pnpm install prisma --save-dev
 pnpx prisma init
 pnpx prisma generate
-pnpx prisma migrate dev --name init
+pnpx prisma migrate dev --name init # 
 pnpx prisma db push # Push schema.prisma to the database
 pnpx prisma db pull
 pnpx prisma studio

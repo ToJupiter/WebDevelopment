@@ -3,9 +3,9 @@ import { validateRegisterInput, ValidationError } from '@/api/auth/auth.validati
 describe('validateRegisterInput', () => {
   it('should return no errors for valid input', () => {
     const input = {
-      full_name: 'John Doe',
+      full_name: 'johndoe',
       email: 'john@example.com',
-      password: 'secure123'
+      password: 'Secure123@'
     };
     const errors = validateRegisterInput(input);
     expect(errors).toHaveLength(0);
@@ -15,7 +15,7 @@ describe('validateRegisterInput', () => {
     const input = {
       full_name: 'Jo',
       email: 'john@example.com',
-      password: 'secure123'
+      password: 'Secure123@'
     };
     const errors = validateRegisterInput(input);
     expect(errors).toContainEqual({
@@ -28,7 +28,7 @@ describe('validateRegisterInput', () => {
     const input = {
       full_name: '',
       email: 'john@example.com',
-      password: 'secure123'
+      password: 'Secure123@'
     };
     const errors = validateRegisterInput(input);
     expect(errors.some(e => e.field === 'full_name')).toBe(true);
@@ -38,7 +38,7 @@ describe('validateRegisterInput', () => {
     const input = {
       full_name: '   ',
       email: 'john@example.com',
-      password: 'secure123'
+      password: 'Secure123@'
     };
     const errors = validateRegisterInput(input);
     expect(errors.some(e => e.field === 'full_name')).toBe(true);
@@ -47,11 +47,11 @@ describe('validateRegisterInput', () => {
   it('should validate email format', () => {
     const invalidEmails = ['invalid', 'invalid@', 'invalid@domain', '@domain.com'];
     invalidEmails.forEach(email => {
-      const input = { full_name: 'John Doe', email, password: 'secure123' };
+      const input = { full_name: 'John Doe', email, password: 'Secure123@' };
       const errors = validateRegisterInput(input);
       expect(errors).toContainEqual({
         field: 'email',
-        message: 'Invalid email address'
+        message: 'Invalid email address format'
       });
     });
   });
@@ -59,7 +59,7 @@ describe('validateRegisterInput', () => {
   it('should accept valid email formats', () => {
     const validEmails = ['test@example.com', 'user.name@domain.co.uk', 'user+tag@domain.com'];
     validEmails.forEach(email => {
-      const input = { full_name: 'John Doe', email, password: 'secure123' };
+      const input = { full_name: 'John_Doe', email, password: 'Secure123@' };
       const errors = validateRegisterInput(input);
       expect(errors.filter(e => e.field === 'email')).toHaveLength(0);
     });
@@ -67,7 +67,7 @@ describe('validateRegisterInput', () => {
 
   it('should validate password minimum length', () => {
     const input = {
-      full_name: 'John Doe',
+      full_name: 'JohnDoe123',
       email: 'john@example.com',
       password: 'short'
     };
@@ -80,7 +80,7 @@ describe('validateRegisterInput', () => {
 
   it('should return multiple errors for invalid input', () => {
     const input = {
-      full_name: 'Jo',
+      full_name: 'JoMama',
       email: 'invalid-email',
       password: 'short'
     };

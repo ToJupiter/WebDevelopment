@@ -1,19 +1,7 @@
 import {User, PrismaClient} from '@/generated/prisma/client';
 import bcrypt from 'bcryptjs';
 import { RegisterInput, LoginInput } from './auth.validation';
-import {PrismaMariaDb} from '@prisma/adapter-mariadb';
-import {parseMySQLEnv} from '@/services/prisma.service';
-
-const parsed_mysql = parseMySQLEnv();
-const mysql_adapter = new PrismaMariaDb({
-    host: parsed_mysql.host,
-    port: parsed_mysql.port,
-    connectionLimit: 10
-});
-
-const prisma = new PrismaClient({
-    adapter: mysql_adapter
-});
+import prisma from '@/services/prisma.service';
 
 export async function createUser(input: RegisterInput): Promise<User> {
     const { email, password, full_name } = input;

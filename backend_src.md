@@ -255,7 +255,9 @@ enum NoteType {
   user_question
   ai_response
 }
+
 ```
+
 
 ## File: prisma.config.ts
 
@@ -20982,19 +20984,69 @@ export async function findModuleProgress(userId: string, moduleId: string) {
 }
 
 export async function updateModuleProgress(userId: string, moduleId: string, status: ProgressStatus, completionPercentage: number) {
-  return prisma.userProgress.upsert({
+  const updatedProgress = await prisma.userProgress.upsert({
     where: { user_id_module_id: { user_id: userId, module_id: moduleId } },
     create: {
       user_id: userId,
       module_id: moduleId,
       status,
       completion_percentage: completionPercentage,
+      started_at: status === 'in_progress' ? new Date() : undefined,
+      completed_at: status === 'completed' ? new Date() : undefined,
     },
     update: {
       status,
       completion_percentage: completionPercentage,
+      completed_at: status === 'completed' ? new Date() : undefined,
     },
   });
+
+  if (status === 'completed') {
+    await checkAndIssueCertificate(userId, moduleId);
+  }
+
+  return updatedProgress;
+}
+
+async function checkAndIssueCertificate(userId: string, moduleId: string) {
+  const moduleData = await prisma.module.findUnique({
+    where: { module_id: moduleId },
+    select: { roadmap_id: true, roadmap: { select: { title: true } } }
+  });
+
+  if (!moduleData) return;
+
+  const roadmapId = moduleData.roadmap_id;
+
+  const totalModules = await prisma.module.count({
+    where: { roadmap_id: roadmapId }
+  });
+
+  const completedModules = await prisma.userProgress.count({
+    where: {
+      user_id: userId,
+      module: { roadmap_id: roadmapId },
+      status: 'completed'
+    }
+  });
+
+  if (totalModules > 0 && completedModules === totalModules) {
+    const existingCert = await prisma.certificate.findUnique({
+      where: { user_id_roadmap_id: { user_id: userId, roadmap_id: roadmapId } }
+    });
+
+    if (!existingCert) {
+      await prisma.certificate.create({
+        data: {
+          user_id: userId,
+          roadmap_id: roadmapId,
+          certificate_name: `${moduleData.roadmap.title} Certificate of Completion`,
+          pdf_url: `/api/certificates/${userId}/${roadmapId}.pdf`
+        }
+      });
+      console.log(`Certificate issued to user ${userId} for roadmap ${roadmapId}`);
+    }
+  }
 }
 
 ```
@@ -21865,6 +21917,9 @@ export function validateLoginInput(input: LoginInput): ValidationError[] {
 import { Request, Response } from 'express';
 import { listPublishedRoadmaps, getRoadmapWithModules, enrollUserInRoadmap } from './roadmaps.services';
 import { isValidRoadmapId } from './roadmaps.validation';
+import { Status } from '@/generated/prisma/client';
+import prisma from '@/services/prisma.service';
+
 
 function extractUserId(req: Request) {
   const header = req.headers['x-user-id'];
@@ -21922,19 +21977,75 @@ export async function enrollRoadmapHandler(req: Request, res: Response) {
   }
 }
 
+
+export async function createRoadmapHandler(req: Request, res: Response) {
+  try {
+    const userId = req.user?.user_id;
+
+    if (!req.body.title || !req.body.category) {
+        return res.status(400).json({ success: false, error: "Title and Category are required" });
+    }
+
+    const roadmap = await prisma.roadmap.create({
+      data: {
+        title: req.body.title,
+        description: req.body.description,
+        category: req.body.category,
+        image_url: req.body.image_url,
+        created_by: userId!, 
+        status: Status.published // Defaulting to published for demo speed
+      }
+    });
+    return res.status(201).json({ success: true, data: roadmap });
+  }
+  catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, error: 'Internal Server Error' });
+  }
+}
+
+export async function createModuleHandler(req: Request, res: Response) {
+  try {
+    const {roadmapId} = req.params;
+
+    const moduleData = await prisma.module.create({
+      data: {
+        roadmap_id: roadmapId,
+        title: req.body.title,
+        description: req.body.description,
+        content: req.body.content || "Placeholder content",
+        order_index: req.body.order_index || 1,
+        estimated_hours: req.body.estimated_hours || 1
+    }
+  });
+    return res.status(201).json({ success: true, data: moduleData });
+}
+  catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, error: 'Internal Server Error' });
+  }
+}
 ```
 
 ## File: src/api/roadmaps/roadmaps.routes.ts
 
 ```typescript
 import { Router } from 'express';
-import { listRoadmapsHandler, getRoadmapHandler, enrollRoadmapHandler } from './roadmaps.controller';
+import { listRoadmapsHandler, getRoadmapHandler, enrollRoadmapHandler, createModuleHandler, createRoadmapHandler } from './roadmaps.controller';
+import { requireAuth, requireRole } from '@/middleware/authenticate';
 
 const router: Router = Router();
 
+// Public
 router.get('/', listRoadmapsHandler);
 router.get('/:roadmapId', getRoadmapHandler);
-router.post('/:roadmapId/enroll', enrollRoadmapHandler);
+
+// User
+router.post('/:roadmapId/enroll', requireAuth, enrollRoadmapHandler);
+
+// Admin / Creator (Protected)
+router.post('/', requireAuth, requireRole(['admin', 'creator']), createRoadmapHandler);
+router.post('/:roadmapId/modules', requireAuth, requireRole(['admin', 'creator']), createModuleHandler);
 
 export default router;
 

@@ -2,11 +2,12 @@ import jwt from 'jsonwebtoken';
 import {Secret, SignOptions} from 'jsonwebtoken';
 import { Response, CookieOptions } from 'express';
 import config from '../config';
+import { Role } from '@/generated/prisma/client';
 
 interface TokenPayload {
   user_id: string;
   email: string;
-  role: string;
+  role: Role;
 }
 
 export const cookieOptions: CookieOptions = {

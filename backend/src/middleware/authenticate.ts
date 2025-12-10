@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken } from '@/services/jwt.service';
 import config from '../config';
+import { Role } from '@/generated/prisma/client';
 
 export const requireAuth = (req: Request, res: Response, next: NextFunction) => {
   let token = req.cookies[config.cookieName];
@@ -24,7 +25,7 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction) => 
   return next();
 };
 
-export const requireRole = (roles: string[]) => (req: Request, res: Response, next: NextFunction) => {
+export const requireRole = (roles: Role[]) => (req: Request, res: Response, next: NextFunction) => {
   if (!req.user || !roles.includes(req.user.role)) {
     return res.status(403).json({ success: false, data: null, error: 'Forbidden: Insufficient permissions' });
   }

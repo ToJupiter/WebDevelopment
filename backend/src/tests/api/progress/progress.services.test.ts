@@ -1,3 +1,4 @@
+// File: src/tests/api/progress/progress.services.test.ts
 import { findModuleProgress, updateModuleProgress } from '@/api/progress/progress.services';
 import { PrismaClient } from '@/generated/prisma/client';
 import { ProgressStatus } from '@/generated/prisma/client';
@@ -7,6 +8,9 @@ jest.mock('@/services/prisma.service', () => ({
   userProgress: {
     findUnique: jest.fn(),
     upsert: jest.fn()
+  },
+  module: {
+    findUnique: jest.fn()
   }
 }));
 
@@ -47,10 +51,22 @@ describe('Progress Services', () => {
         completion_percentage: 100,
         last_accessed_at: new Date()
       };
+      const mockModule = {
+        module_id: mockModuleId,
+        roadmap_id: 'roadmap-123'
+      };
+      
+      // Mock both userProgress.upsert and module.findUnique
       (prisma.userProgress.upsert as jest.Mock).mockResolvedValue(mockProgress);
+      (prisma.module.findUnique as jest.Mock).mockResolvedValue(mockModule);
 
       const result = await updateModuleProgress(mockUserId, mockModuleId, 'completed', 100);
 
+      expect(prisma.module.findUnique).toHaveBeenCalledWith({
+        where: { module_id: mockModuleId },
+        select: { roadmap_id: true, roadmap: { select: { title: true } } }
+      });
+      
       expect(prisma.userProgress.upsert).toHaveBeenCalledWith({
         where: { user_id_module_id: { user_id: mockUserId, module_id: mockModuleId } },
         create: {

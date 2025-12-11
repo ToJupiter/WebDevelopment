@@ -1,7 +1,9 @@
+// File: src/tests/api/cvs/cvs.controller.test.ts
 import { listCVsHandler, createCVHandler, updateCVHandler, optimizeCVHandler } from '@/api/cvs/cvs.controller';
 import { listUserCVs, createCV, updateCV, optimizeCVSection } from '@/api/cvs/cvs.services';
 import { Request, Response } from 'express';
 import { TemplateStyle } from '@/generated/prisma/client';
+import { Role } from '@/generated/prisma/client';
 
 jest.mock('@/api/cvs/cvs.services');
 
@@ -22,7 +24,7 @@ describe('CVs Controller', () => {
 
   describe('listCVsHandler', () => {
     it('should return 401 when user ID is missing', async () => {
-      mockRequest = { headers: {} };
+      mockRequest = { user: undefined };
 
       await listCVsHandler(mockRequest as Request, mockResponse as Response);
 
@@ -45,7 +47,7 @@ describe('CVs Controller', () => {
           pdf_url: null
         }
       ];
-      mockRequest = { headers: { 'x-user-id': mockUserId } };
+      mockRequest = { user: { user_id: mockUserId, role: Role.admin, email: "hihe@gmail.com" } };
       (listUserCVs as jest.Mock).mockResolvedValue(mockCVs);
 
       await listCVsHandler(mockRequest as Request, mockResponse as Response);
@@ -60,7 +62,8 @@ describe('CVs Controller', () => {
     });
 
     it('should handle service errors and return 500', async () => {
-      mockRequest = { headers: { 'x-user-id': mockUserId } };
+      // mockRequest = { user: { user_id: mockUserId, role: } };
+      mockRequest = { user: { user_id: mockUserId, role: Role.admin, email: "hihe@gmail.com" } };
       (listUserCVs as jest.Mock).mockRejectedValue(new Error('Database error'));
 
       await listCVsHandler(mockRequest as Request, mockResponse as Response);
@@ -82,7 +85,7 @@ describe('CVs Controller', () => {
     };
 
     it('should return 401 when user ID is missing', async () => {
-      mockRequest = { headers: {}, body: validPayload };
+      mockRequest = { user: undefined, body: validPayload };
 
       await createCVHandler(mockRequest as Request, mockResponse as Response);
 
@@ -96,7 +99,7 @@ describe('CVs Controller', () => {
         ...validPayload
       };
       mockRequest = { 
-        headers: { 'x-user-id': mockUserId }, 
+        user: { user_id: mockUserId, role: Role.admin, email: "hihe@gmail.com" }, 
         body: validPayload 
       };
       (createCV as jest.Mock).mockResolvedValue(mockCreatedCV);
@@ -130,6 +133,7 @@ describe('CVs Controller', () => {
         index: 0
       };
       mockRequest = {
+        user: { user_id: mockUserId, role: Role.admin, email: "hihe@gmail.com" },
         params: { cvId: mockCVId },
         body: { section: 'experience', index: 0, text: 'Led team...' }
       };

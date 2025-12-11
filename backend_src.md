@@ -258,8 +258,6 @@ enum NoteType {
 
 ```
 
-
-
 ## File: prisma.config.ts
 
 ```typescript
@@ -377,14 +375,14 @@ app.listen(PORT, () => {
 ## File: src/types/express/index.d.ts
 
 ```typescript
-import { User } from '@/generated/prisma/client';
+import { Role, User } from '@/generated/prisma/client';
 
 declare global {
   namespace Express {
     interface Request {
       user?: {
         user_id: string;
-        role: string;
+        role: Role;
         email: string;
       };
     }
@@ -398,6 +396,7 @@ declare global {
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken } from '@/services/jwt.service';
 import config from '../config';
+import { Role } from '@/generated/prisma/client';
 
 export const requireAuth = (req: Request, res: Response, next: NextFunction) => {
   let token = req.cookies[config.cookieName];
@@ -421,12 +420,155 @@ export const requireAuth = (req: Request, res: Response, next: NextFunction) => 
   return next();
 };
 
-export const requireRole = (roles: string[]) => (req: Request, res: Response, next: NextFunction) => {
+export const requireRole = (roles: Role[]) => (req: Request, res: Response, next: NextFunction) => {
   if (!req.user || !roles.includes(req.user.role)) {
     return res.status(403).json({ success: false, data: null, error: 'Forbidden: Insufficient permissions' });
   }
   return next();
 };
+```
+
+## File: src/middleware/ownership.ts
+
+```typescript
+import { Request, Response, NextFunction } from 'express';
+import prisma from '@/services/prisma.service';
+import { Role } from '@/generated/prisma/client';
+
+// Generic function to check if the current user owns a resource
+// Returns true for Admins automatically
+export const checkOwnership = (
+  model: 'roadmap' | 'cV' | 'learningEvent' | 'interviewSession' | 'aINote' | 'certificate', 
+  idParam: string, 
+  ownerField: string = 'user_id', 
+  idField?: string
+) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user?.user_id;
+      const userRole = req.user?.role;
+      const resourceId = req.params[idParam];
+
+      if (!userId) return res.status(401).json({ success: false, error: 'Unauthorized' });
+      if (userRole === Role.admin) return next(); // Admin override
+
+      // Determine primary key field name if not provided (assume [model]_id convention usually works, but specific cases handled)
+      const pkField = idField || `${model === 'cV' ? 'cv' : model}_id`;
+
+      // @ts-ignore - Dynamic access to prisma delegate
+      const resource = await prisma[model].findUnique({
+        where: { [pkField]: resourceId },
+        select: { [ownerField]: true }
+      });
+
+      if (!resource) {
+        return res.status(404).json({ success: false, error: 'Resource not found' });
+      }
+
+      if (resource[ownerField] !== userId) {
+        return res.status(403).json({ success: false, error: 'Forbidden: You do not own this resource' });
+      }
+
+      return next();
+    } catch (error) {
+      console.error('Ownership check error:', error);
+      return res.status(500).json({ success: false, error: 'Internal Server Error' });
+    }
+  };
+};
+
+// Check if a creator owns the roadmap they are trying to add modules/exercises to
+export const verifyRoadmapOwnership = async (req: Request, res: Response, next: NextFunction) => {
+  const userId = req.user?.user_id;
+  const userRole = req.user?.role;
+  // roadmapId might be in params (creating module) or body (creating exercise linking to roadmap?)
+  // For createModule: params.roadmapId
+  const roadmapId = req.params.roadmapId || req.body.roadmap_id;
+
+  if (userRole === Role.admin) return next();
+
+  const roadmap = await prisma.roadmap.findUnique({
+    where: { roadmap_id: roadmapId },
+    select: { created_by: true }
+  });
+
+  if (!roadmap) return res.status(404).json({ success: false, error: 'Roadmap not found' });
+  
+  if (roadmap.created_by !== userId) {
+    return res.status(403).json({ success: false, error: 'Forbidden: You are not the creator of this roadmap' });
+  }
+  next();
+};
+
+// Check if user owns the module (via roadmap) - for updating/deleting modules
+export const verifyModuleOwnership = async (req: Request, res: Response, next: NextFunction) => {
+  const userId = req.user?.user_id;
+  const userRole = req.user?.role;
+  // Module ID usually in params for update/delete
+  const moduleId = req.params.moduleId || req.body.module_id;
+
+  if (userRole === Role.admin) return next();
+
+  const moduleData = await prisma.module.findUnique({
+    where: { module_id: moduleId },
+    include: { roadmap: { select: { created_by: true } } }
+  });
+
+  if (!moduleData) return res.status(404).json({ success: false, error: 'Module not found' });
+
+  if (moduleData.roadmap.created_by !== userId) {
+    return res.status(403).json({ success: false, error: 'Forbidden: You do not own the parent roadmap' });
+  }
+  next();
+};
+
+// Check if user owns the exercise (via module -> roadmap)
+export const verifyExerciseOwnership = async (req: Request, res: Response, next: NextFunction) => {
+  const userId = req.user?.user_id;
+  const userRole = req.user?.role;
+  const exerciseId = req.params.exerciseId;
+
+  if (userRole === Role.admin) return next();
+
+  const exercise = await prisma.exercise.findUnique({
+    where: { exercise_id: exerciseId },
+    include: { module: { include: { roadmap: { select: { created_by: true } } } } }
+  });
+
+  if (!exercise) return res.status(404).json({ success: false, error: 'Exercise not found' });
+
+  if (exercise.module.roadmap.created_by !== userId) {
+    return res.status(403).json({ success: false, error: 'Forbidden: You do not own this exercise' });
+  }
+  next();
+};
+
+// Check if user is enrolled in the module's roadmap (for accessing content/notes)
+export const checkEnrollment = async (req: Request, res: Response, next: NextFunction) => {
+  const userId = req.user?.user_id;
+  const moduleId = req.params.moduleId || req.query.module_id as string;
+
+  if (!userId) return res.status(401).json({ success: false, error: 'Unauthorized' });
+  if (!moduleId) return res.status(400).json({ success: false, error: 'Module ID is required' });
+
+  if (req.user?.role === Role.admin || req.user?.role === Role.creator) return next();
+
+  const progress = await prisma.userProgress.findUnique({
+    where: {
+      user_id_module_id: {
+        user_id: userId,
+        module_id: moduleId
+      }
+    }
+  });
+
+  if (!progress) {
+    return res.status(403).json({ success: false, error: 'Forbidden: You are not enrolled in this module' });
+  }
+  next();
+};
+
+
 ```
 
 ## File: src/middleware/rateLimiter.ts
@@ -20585,8 +20727,13 @@ import { Router } from 'express';
 import { validateRequest } from '../../middleware/validateRequest';
 import { aiChatHandler, listNotesHandler } from './notes.controller';
 import { validateAiChatPayload } from './notes.validation';
+import { requireAuth } from '@/middleware/authenticate';
+import { checkEnrollment } from '@/middleware/ownership';
 
 const router: Router = Router({ mergeParams: true });
+
+// Enrollment check
+router.use(requireAuth, checkEnrollment);
 
 router.post('/ai-chat', validateRequest(validateAiChatPayload), aiChatHandler);
 router.get('/ai-notes', listNotesHandler);
@@ -20776,14 +20923,46 @@ import {
   updateExerciseHandler,
 } from './exercises.controller';
 import { validateExerciseCreation, validateExerciseSubmission, validateExerciseUpdate } from './exercises.validation';
+import { requireAuth, requireRole } from '@/middleware/authenticate';
+import { verifyExerciseOwnership, verifyModuleOwnership, checkEnrollment } from '@/middleware/ownership';
+import { Role } from '@/generated/prisma/client';
 
 const router: Router = Router();
 
-router.get('/', listExercisesHandler);
-router.post('/', validateRequest(validateExerciseCreation), createExerciseHandler);
-router.put('/:exerciseId', validateRequest(validateExerciseUpdate), updateExerciseHandler);
-router.delete('/:exerciseId', deleteExerciseHandler);
-router.post('/:exerciseId/submit', validateRequest(validateExerciseSubmission), submitExerciseHandler);
+// User: Exercises (list)
+router.get('/', requireAuth, checkEnrollment, listExercisesHandler);
+
+// Creator/ Admin: Exercises (create)
+router.post('/', 
+  requireAuth, 
+  requireRole([Role.admin, Role.creator]), 
+  verifyModuleOwnership, 
+  validateRequest(validateExerciseCreation), 
+  createExerciseHandler
+);
+
+// Creator/Admin: Exercises (Update/ Delete)
+router.put('/:exerciseId', 
+  requireAuth, 
+  requireRole([Role.admin, Role.creator]), 
+  verifyExerciseOwnership, 
+  validateRequest(validateExerciseUpdate), 
+  updateExerciseHandler
+);
+
+router.delete('/:exerciseId', 
+  requireAuth,
+  requireRole([Role.admin, Role.creator]), 
+  verifyExerciseOwnership, 
+  deleteExerciseHandler
+);
+
+// User: Exercises (Submit)
+router.post('/:exerciseId/submit', 
+  requireAuth, 
+  validateRequest(validateExerciseSubmission), 
+  submitExerciseHandler
+);
 
 export default router;
 
@@ -20962,8 +21141,12 @@ import { Router } from 'express';
 import { getModuleProgressHandler, updateModuleProgressHandler } from './progress.controller';
 import { validateRequest } from '../../middleware/validateRequest';
 import { validateProgressUpdate } from './progress.validation';
+import { requireAuth } from '@/middleware/authenticate';
+import { checkEnrollment } from '@/middleware/ownership';
 
 const router: Router = Router();
+
+router.use('/modules/:moduleId/progress', requireAuth, checkEnrollment);
 
 router.get('/modules/:moduleId/progress', getModuleProgressHandler);
 router.patch('/modules/:moduleId/progress', validateRequest(validateProgressUpdate), updateModuleProgressHandler);
@@ -21173,11 +21356,20 @@ import {
   submitInterviewHandler,
 } from './interviews.controller';
 import { validateInterviewCreation, validateInterviewSubmission } from './interviews.validation';
+import { requireAuth } from '@/middleware/authenticate';
+import { checkOwnership } from '@/middleware/ownership';
 
 const router: Router = Router();
+router.use(requireAuth);
 
 router.post('/sessions', validateRequest(validateInterviewCreation), startInterviewHandler);
-router.post('/sessions/:sessionId/submit', validateRequest(validateInterviewSubmission), submitInterviewHandler);
+
+router.post('/sessions/:sessionId/submit', 
+  checkOwnership('interviewSession', 'sessionId', 'user_id', 'session_id'),
+  validateRequest(validateInterviewSubmission), 
+  submitInterviewHandler
+);
+
 router.get('/sessions', listInterviewsHandler);
 
 export default router;
@@ -21514,13 +21706,26 @@ import { Router } from 'express';
 import { validateRequest } from '../../middleware/validateRequest';
 import { createEventHandler, deleteEventHandler, listEventsHandler, updateEventHandler } from './calendar.controller';
 import { validateCalendarCreation, validateCalendarUpdate } from './calendar.validation';
+import { requireAuth } from '@/middleware/authenticate';
+import { checkOwnership } from '@/middleware/ownership';
 
 const router: Router = Router();
+router.use(requireAuth);
 
 router.get('/events', listEventsHandler);
 router.post('/events', validateRequest(validateCalendarCreation), createEventHandler);
-router.put('/events/:eventId', validateRequest(validateCalendarUpdate), updateEventHandler);
-router.delete('/events/:eventId', deleteEventHandler);
+
+// User (Update/ Delete Calendar Events)
+router.put('/events/:eventId', 
+    checkOwnership('learningEvent', 'eventId', 'user_id', 'event_id'),
+    validateRequest(validateCalendarUpdate), 
+    updateEventHandler
+);
+
+router.delete('/events/:eventId', 
+    checkOwnership('learningEvent', 'eventId', 'user_id', 'event_id'),
+    deleteEventHandler
+);
 
 export default router;
 
@@ -22090,19 +22295,21 @@ export async function createModuleHandler(req: Request, res: Response) {
 import { Router } from 'express';
 import { listRoadmapsHandler, getRoadmapHandler, enrollRoadmapHandler, createModuleHandler, createRoadmapHandler } from './roadmaps.controller';
 import { requireAuth, requireRole } from '@/middleware/authenticate';
+import { verifyRoadmapOwnership, checkOwnership } from '@/middleware/ownership';
+import { Role } from '@/generated/prisma/client';
 
 const router: Router = Router();
 
-// Public
+// Public: Roadmap (List, View)
 router.get('/', listRoadmapsHandler);
 router.get('/:roadmapId', getRoadmapHandler);
 
-// User
+// User: Roadmap (enroll)
 router.post('/:roadmapId/enroll', requireAuth, enrollRoadmapHandler);
 
-// Admin / Creator (Protected)
-router.post('/', requireAuth, requireRole(['admin', 'creator']), createRoadmapHandler);
-router.post('/:roadmapId/modules', requireAuth, requireRole(['admin', 'creator']), createModuleHandler);
+// Admin / Creator: Roadmap (ownership), Module (create)
+router.post('/', requireAuth, requireRole([Role.admin, Role.creator]), createRoadmapHandler);
+router.post('/:roadmapId/modules', requireAuth, requireRole([Role.admin, Role.creator]), verifyRoadmapOwnership, createModuleHandler);
 
 export default router;
 
@@ -22327,13 +22534,30 @@ import { Router } from 'express';
 import { validateRequest } from '../../middleware/validateRequest';
 import { createCVHandler, listCVsHandler, optimizeCVHandler, updateCVHandler } from './cvs.controller';
 import { validateCVCreation, validateCVOptimization, validateCVUpdate } from './cvs.validation';
+import { requireAuth } from '@/middleware/authenticate';
+import { checkOwnership } from '@/middleware/ownership';
 
 const router: Router = Router();
 
+router.use(requireAuth);
+
 router.get('/', listCVsHandler);
 router.post('/', validateRequest(validateCVCreation), createCVHandler);
-router.put('/:cvId', validateRequest(validateCVUpdate), updateCVHandler);
-router.post('/:cvId/optimize', validateRequest(validateCVOptimization), optimizeCVHandler);
+
+
+router.put('/:cvId', 
+    checkOwnership('cV', 'cvId'),
+    validateRequest(validateCVUpdate), 
+    updateCVHandler
+);
+
+router.post('/:cvId/optimize', 
+    checkOwnership('cV', 'cvId'),
+    validateRequest(validateCVOptimization), 
+    optimizeCVHandler
+);
+
+// router.delete('/:cvId', checkOwnership('cV', 'cvId'), deleteCVHandler); 
 
 export default router;
 
@@ -22522,11 +22746,17 @@ import { Router } from 'express';
 import { validateRequest } from '../../middleware/validateRequest';
 import { issueCertificateHandler, listCertificatesHandler } from './certificates.controller';
 import { validateCertificatePayload } from './certificates.validation';
+import { requireAuth, requireRole } from '@/middleware/authenticate';
+import { Role } from '@/generated/prisma/client';
 
 const router: Router = Router();
 
+router.use(requireAuth);
+
 router.get('/', listCertificatesHandler);
-router.post('/', validateRequest(validateCertificatePayload), issueCertificateHandler);
+
+// Admin: Certificates (Create manually)
+router.post('/', requireRole([Role.admin]),validateRequest(validateCertificatePayload), issueCertificateHandler);
 
 export default router;
 
@@ -22661,11 +22891,12 @@ import jwt from 'jsonwebtoken';
 import {Secret, SignOptions} from 'jsonwebtoken';
 import { Response, CookieOptions } from 'express';
 import config from '../config';
+import { Role } from '@/generated/prisma/client';
 
 interface TokenPayload {
   user_id: string;
   email: string;
-  role: string;
+  role: Role;
 }
 
 export const cookieOptions: CookieOptions = {

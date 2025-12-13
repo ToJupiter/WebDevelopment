@@ -8,6 +8,9 @@ const parsed_mysql = parseMySQLEnv();
 const mysql_adapter = new PrismaMariaDb({
     host: parsed_mysql.host,
     port: parsed_mysql.port,
+    user: parsed_mysql.user,
+    password: parsed_mysql.password,
+    database: parsed_mysql.database,
     connectionLimit: 10
 });
 

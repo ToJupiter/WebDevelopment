@@ -24,6 +24,7 @@ model User {
   learningEvents    LearningEvent[]
   roadmaps          Roadmap[]
   progress          UserProgress[]
+  exerciseSubmissions ExerciseSubmission[]
 
   @@index([email])
   @@map("Users")
@@ -99,9 +100,24 @@ model Exercise {
   created_at    DateTime   @default(now())
   updated_at    DateTime   @updatedAt
   module        Module     @relation(fields: [module_id], references: [module_id], onDelete: Cascade)
+  submissions   ExerciseSubmission[]
 
   @@index([module_id, difficulty])
   @@map("Exercises")
+}
+
+model ExerciseSubmission {
+  submission_id String   @id @default(uuid()) @db.VarChar(36)
+  exercise_id   String   @db.VarChar(36)
+  user_id       String   @db.VarChar(36)
+  answer_text   String   @db.LongText
+  submitted_at  DateTime @default(now())
+  exercise      Exercise @relation(fields: [exercise_id], references: [exercise_id], onDelete: Cascade)
+  user          User     @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  @@index([exercise_id, user_id])
+  @@index([user_id, submitted_at])
+  @@map("ExerciseSubmissions")
 }
 
 model InterviewSession {

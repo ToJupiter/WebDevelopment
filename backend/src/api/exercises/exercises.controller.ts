@@ -85,14 +85,21 @@ export async function deleteExerciseHandler(req: Request, res: Response) {
 
 export async function submitExerciseHandler(req: Request, res: Response) {
   try {
-    // const userId = extractUserId(req);
     const userId = req.user?.user_id;
 
+    if (!userId) {
+      return res.status(401).json({ success: false, data: null, error: 'Unauthorized' });
+    }
+
     const { exerciseId } = req.params;
-    const submission = await submitExercise(exerciseId, {
-      answer_text: req.body.answer_text,
-      user_id: userId,
-    });
+    const { answer_text } = req.body;
+
+    const submission = await submitExercise(exerciseId, userId, answer_text);
+    
+    if (!submission) {
+      return res.status(404).json({ success: false, data: null, error: 'Exercise not found' });
+    }
+
     return res.status(201).json({ success: true, data: submission, error: null });
   } catch (error) {
     return res.status(500).json({ success: false, data: null, error: 'Internal Server Error' });

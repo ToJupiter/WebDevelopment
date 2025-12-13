@@ -30,7 +30,6 @@ router.post('/',
 router.put('/:exerciseId', 
   requireAuth, 
   requireRole([Role.admin, Role.creator]), 
-  verifyExerciseOwnership, 
   validateRequest(validateExerciseUpdate), 
   updateExerciseHandler
 );

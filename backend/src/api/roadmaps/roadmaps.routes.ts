@@ -1,8 +1,12 @@
 import { Router } from 'express';
 import { listRoadmapsHandler, getRoadmapHandler, enrollRoadmapHandler, createModuleHandler, createRoadmapHandler } from './roadmaps.controller';
 import { requireAuth, requireRole } from '@/middleware/authenticate';
-import { verifyRoadmapOwnership, checkOwnership } from '@/middleware/ownership';
+import { verifyRoadmapOwnership, checkOwnership, verifyModuleOwnership } from '@/middleware/ownership';
 import { Role } from '@/generated/prisma/client';
+import { 
+  updateRoadmapHandler, deleteRoadmapHandler, 
+  getModuleHandler, updateModuleHandler, deleteModuleHandler 
+} from './roadmaps.controller';
 
 const router: Router = Router();
 
@@ -13,8 +17,15 @@ router.get('/:roadmapId', getRoadmapHandler);
 // User: Roadmap (enroll)
 router.post('/:roadmapId/enroll', requireAuth, enrollRoadmapHandler);
 
-// Admin / Creator: Roadmap (ownership), Module (create)
+// Admin / Creator: Roadmap (ownership, update, delete)
 router.post('/', requireAuth, requireRole([Role.admin, Role.creator]), createRoadmapHandler);
+router.put('/:roadmapId', requireAuth, requireRole([Role.admin, Role.creator]), verifyRoadmapOwnership, updateRoadmapHandler);
+router.delete('/:roadmapId', requireAuth, requireRole([Role.admin, Role.creator]), verifyRoadmapOwnership, deleteRoadmapHandler);
+
+// Admin / Creator: Module (create)
 router.post('/:roadmapId/modules', requireAuth, requireRole([Role.admin, Role.creator]), verifyRoadmapOwnership, createModuleHandler);
+router.get('/:roadmapId/modules/:moduleId', requireAuth, getModuleHandler);
+router.put('/:roadmapId/modules/:moduleId', requireAuth, requireRole([Role.admin, Role.creator]), verifyModuleOwnership, updateModuleHandler);
+router.delete('/:roadmapId/modules/:moduleId', requireAuth, requireRole([Role.admin, Role.creator]), verifyModuleOwnership, deleteModuleHandler);
 
 export default router;

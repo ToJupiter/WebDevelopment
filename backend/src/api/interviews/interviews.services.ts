@@ -113,7 +113,7 @@ async function buildInterviewFeedback(questions: InterviewQuestion[], answers: I
     content: `Questions:\n${questionList}\n\nAnswers:\n${answerList}\n\nRespond as JSON with summary, score, highlights, areas_for_growth. Score between 0 and 100.`,
   };
 
-  const completion = await createChatCompletion([systemMessage, userMessage], 'gpt-oss-20b', 0.5);
+  const completion = await createChatCompletion([systemMessage, userMessage], 'openai/gpt-oss-20b', 0.5);
   const raw = extractFirstMessageContent(completion);
   let parsed: Partial<InterviewFeedback> = {};
   if (raw) {

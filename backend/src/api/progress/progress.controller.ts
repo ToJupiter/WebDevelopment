@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
-import { findModuleProgress, updateModuleProgress } from './progress.services';
+import { findModuleProgress, updateModuleProgress, getUserDashboardOverview, getRoadmapProgress } from './progress.services';
+
 
 function extractUserId(req: Request) {
   const header = req.headers['x-user-id'];
@@ -43,4 +44,18 @@ export async function updateModuleProgressHandler(req: Request, res: Response) {
   } catch (error) {
     return res.status(500).json({ success: false, data: null, error: 'Internal Server Error' });
   }
+}
+
+export async function getOverviewHandler(req: Request, res: Response) {
+  const userId = req.user?.user_id!;
+  const data = await getUserDashboardOverview(userId);
+  return res.status(200).json({ success: true, data });
+}
+
+export async function getRoadmapProgressHandler(req: Request, res: Response) {
+  const userId = req.user?.user_id!;
+  const { roadmapId } = req.params;
+  const data = await getRoadmapProgress(userId, roadmapId);
+  if (!data) return res.status(404).json({ success: false, error: 'Roadmap not found' });
+  return res.status(200).json({ success: true, data });
 }

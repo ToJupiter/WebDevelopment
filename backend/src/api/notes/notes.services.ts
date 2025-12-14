@@ -4,7 +4,7 @@ import prisma from '@/services/prisma.service';
 export async function getModuleById(moduleId: string) {
   return prisma.module.findUnique({
     where: { module_id: moduleId },
-    select: { module_id: true, title: true },
+    select: { module_id: true, title: true, content: true },
   });
 }
 
@@ -40,5 +40,15 @@ export async function listModuleNotes(userId: string, moduleId: string) {
       created_at: true,
       sequence_order: true,
     },
+  });
+}
+
+export async function deleteNote(noteId: string, userId: string) {
+  // Ensure user owns the note
+  const note = await prisma.aINote.findUnique({ where: { note_id: noteId }});
+  if (!note || note.user_id !== userId) throw new Error("Unauthorized");
+  
+  return prisma.aINote.delete({
+    where: { note_id: noteId }
   });
 }

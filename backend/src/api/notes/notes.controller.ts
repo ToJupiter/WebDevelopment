@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { NoteType } from '@/generated/prisma/client';
 import { createChatCompletion, extractFirstMessageContent, ChatMessage } from '@/services/groq.service';
-import { createModuleNote, getModuleById, getNextSequenceOrder, listModuleNotes } from './notes.services';
+import { createModuleNote, getModuleById, getNextSequenceOrder, listModuleNotes, deleteNote } from './notes.services';
 
 function extractUserId(req: Request) {
   const header = req.headers['x-user-id'];
@@ -15,10 +15,10 @@ export async function aiChatHandler(req: Request, res: Response) {
   try {
     // const userId = extractUserId(req);
     const userId = req.user?.user_id;
-
     if (!userId) {
       return res.status(401).json({ success: false, data: null, error: 'Unauthorized' });
     }
+
     const { moduleId } = req.params;
     const moduleMeta = await getModuleById(moduleId);
     if (!moduleMeta) {
@@ -28,9 +28,10 @@ export async function aiChatHandler(req: Request, res: Response) {
     const sequenceOrder = await getNextSequenceOrder(userId, moduleId);
     await createModuleNote(userId, moduleId, question, NoteType.user_question, sequenceOrder);
 
+    const moduleContentPreview = moduleMeta.content ? `${moduleMeta.content.substring(0, 1000)}...` : "No content available for this module.";
     const systemMessage: ChatMessage = {
       role: 'system',
-      content: 'You are a friendly learning assistant for SkillSync. Answer clearly and keep the tone helpful.',
+      content: `You are a tutor. Context: Module "${moduleMeta.title}". Content: "${moduleContentPreview}". Answer specific to this context.`,
     };
     const userMessage: ChatMessage = {
       role: 'user',
@@ -62,5 +63,16 @@ export async function listNotesHandler(req: Request, res: Response) {
     return res.status(200).json({ success: true, data: notes, error: null });
   } catch (error) {
     return res.status(500).json({ success: false, data: null, error: 'Internal Server Error' });
+  }
+}
+
+export async function deleteNoteHandler(req: Request, res: Response) {
+  try {
+    const userId = req.user?.user_id!;
+    const { noteId } = req.params;
+    await deleteNote(noteId, userId);
+    return res.status(200).json({ success: true, data: { message: "Note deleted" }});
+  } catch (e) {
+    return res.status(500).json({ success: false });
   }
 }

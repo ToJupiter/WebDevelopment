@@ -72,3 +72,68 @@ async function checkAndIssueCertificate(userId: string, moduleId: string) {
     }
   }
 }
+
+export async function getUserDashboardOverview(userId: string) {
+  const distinctRoadmaps = await prisma.userProgress.findMany({
+    where: { user_id: userId },
+    select: { module: { select: { roadmap_id: true } } },
+    distinct: ['module_id']
+  });
+  
+  const roadmapIds = new Set(distinctRoadmaps.map(p => p.module.roadmap_id));
+  
+  const completedModules = await prisma.userProgress.count({
+    where: { user_id: userId, status: 'completed' }
+  });
+
+  const allProgress = await prisma.userProgress.findMany({
+    where: { user_id: userId },
+    select: { completion_percentage: true }
+  });
+  
+  const avgCompletion = allProgress.length > 0 
+    ? allProgress.reduce((acc, curr) => acc + Number(curr.completion_percentage), 0) / allProgress.length
+    : 0;
+
+  return {
+    enrolled_roadmaps: roadmapIds.size,
+    completed_modules: completedModules,
+    average_completion: avgCompletion.toFixed(2)
+  };
+}
+
+export async function getRoadmapProgress(userId: string, roadmapId: string) {
+  const roadmap = await prisma.roadmap.findUnique({
+    where: { roadmap_id: roadmapId },
+    select: { title: true }
+  });
+
+  if (!roadmap) return null;
+
+  const modules = await prisma.module.findMany({
+    where: { roadmap_id: roadmapId },
+    include: {
+      userProgress: {
+        where: { user_id: userId }
+      }
+    },
+    orderBy: { order_index: 'asc' }
+  });
+
+  const progressData = modules.map(m => ({
+    module_id: m.module_id,
+    title: m.title,
+    status: m.userProgress[0]?.status ?? 'not_started',
+    percentage: m.userProgress[0]?.completion_percentage ?? 0
+  }));
+
+  const total = progressData.length;
+  const completed = progressData.filter(p => p.status === 'completed').length;
+  const overall = total > 0 ? (completed / total) * 100 : 0;
+
+  return {
+    roadmap_title: roadmap.title,
+    overall_progress: overall,
+    modules: progressData
+  };
+}

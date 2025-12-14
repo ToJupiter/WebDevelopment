@@ -76,3 +76,9 @@ export async function optimizeCVSection(cvId: string, section: 'personal_info' |
     index,
   };
 }
+
+export async function getCVById(cvId: string) {
+  return prisma.cV.findUnique({
+    where: { cv_id: cvId },
+  });
+}

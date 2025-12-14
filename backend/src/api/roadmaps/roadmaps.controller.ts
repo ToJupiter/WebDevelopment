@@ -3,6 +3,7 @@ import { listPublishedRoadmaps, getRoadmapWithModules, enrollUserInRoadmap } fro
 import { isValidRoadmapId } from './roadmaps.validation';
 import { Status } from '@/generated/prisma/client';
 import prisma from '@/services/prisma.service';
+import { updateRoadmap, deleteRoadmap, getModuleDetail, updateModule, deleteModule } from './roadmaps.services';
 
 
 function extractUserId(req: Request) {
@@ -106,6 +107,57 @@ export async function createModuleHandler(req: Request, res: Response) {
 }
   catch (error) {
     console.error(error);
+    return res.status(500).json({ success: false, error: 'Internal Server Error' });
+  }
+}
+
+export async function updateRoadmapHandler(req: Request, res: Response) {
+  try {
+    const { roadmapId } = req.params;
+    const updated = await updateRoadmap(roadmapId, req.body);
+    return res.status(200).json({ success: true, data: updated });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: 'Internal Server Error' });
+  }
+}
+
+export async function deleteRoadmapHandler(req: Request, res: Response) {
+  try {
+    const { roadmapId } = req.params;
+    await deleteRoadmap(roadmapId);
+    return res.status(200).json({ success: true, data: { message: 'Roadmap deleted' } });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: 'Internal Server Error' });
+  }
+}
+
+export async function getModuleHandler(req: Request, res: Response) {
+  try {
+    const { moduleId } = req.params;
+    const moduleData = await getModuleDetail(moduleId);
+    if (!moduleData) return res.status(404).json({ success: false, error: 'Module not found' });
+    return res.status(200).json({ success: true, data: moduleData });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: 'Internal Server Error' });
+  }
+}
+
+export async function updateModuleHandler(req: Request, res: Response) {
+  try {
+    const { moduleId } = req.params;
+    const updated = await updateModule(moduleId, req.body);
+    return res.status(200).json({ success: true, data: updated });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: 'Internal Server Error' });
+  }
+}
+
+export async function deleteModuleHandler(req: Request, res: Response) {
+  try {
+    const { moduleId } = req.params;
+    await deleteModule(moduleId);
+    return res.status(200).json({ success: true, data: { message: 'Module deleted' } });
+  } catch (error) {
     return res.status(500).json({ success: false, error: 'Internal Server Error' });
   }
 }

@@ -74,7 +74,7 @@ Xây dựng một ứng dụng web hiện đại, có cấu trúc, đóng vai tr
         *   Hiển thị câu trả lời cho User.
         *   **Hệ thống Backend:** Tự động lưu lại câu hỏi của người dùng và câu trả lời của AI vào bảng `AINotes`, gắn với `user_id` và `module_id` tương ứng. `note_type` có thể là `user_question` và `ai_response`.
 
-**Usecase 3: Quản lý Kế hoạch học tập cá nhân (Thay thế AI Study Planner)**
+**Usecase 3: Quản lý Kế hoạch học tập cá nhân**
 *   *Mô tả:* Người dùng tự quản lý thời gian biểu học tập của mình bằng công cụ lịch tích hợp.
 *   **Tác nhân & Hành động:**
     *   **User:**
@@ -84,7 +84,7 @@ Xây dựng một ứng dụng web hiện đại, có cấu trúc, đóng vai tr
         *   Chỉnh sửa, xóa hoặc đánh dấu các sự kiện là "đã hoàn thành".
     *   **Hệ thống Backend:**
         *   Xử lý các thao tác CRUD (Create, Read, Update, Delete) trên bảng `LearningEvents`.
-        *   Không có sự can thiệp của AI trong việc tự động tạo lịch. Cột `is_ai_suggested` có thể được sử dụng trong tương lai nếu có tính năng gợi ý đơn giản (ví dụ: "Bạn có muốn tạo sự kiện học cho module này không?").
+        *   Không có sự can thiệp của AI trong việc tự động tạo lịch.
 
 **Usecase 4: Luyện phỏng vấn qua Chat với AI (Cập nhật)**
 *   *Mô tả:* Người dùng tham gia một buổi phỏng vấn mô phỏng qua giao diện chat với AI để cải thiện kỹ năng trả lời.

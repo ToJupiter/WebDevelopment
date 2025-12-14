@@ -26,6 +26,7 @@ model User {
   learningEvents    LearningEvent[]
   roadmaps          Roadmap[]
   progress          UserProgress[]
+  exerciseSubmissions ExerciseSubmission[]
 
   @@index([email])
   @@map("Users")
@@ -101,9 +102,24 @@ model Exercise {
   created_at    DateTime   @default(now())
   updated_at    DateTime   @updatedAt
   module        Module     @relation(fields: [module_id], references: [module_id], onDelete: Cascade)
+  submissions   ExerciseSubmission[]
 
   @@index([module_id, difficulty])
   @@map("Exercises")
+}
+
+model ExerciseSubmission {
+  submission_id String   @id @default(uuid()) @db.VarChar(36)
+  exercise_id   String   @db.VarChar(36)
+  user_id       String   @db.VarChar(36)
+  answer_text   String   @db.LongText
+  submitted_at  DateTime @default(now())
+  exercise      Exercise @relation(fields: [exercise_id], references: [exercise_id], onDelete: Cascade)
+  user          User     @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  @@index([exercise_id, user_id])
+  @@index([user_id, submitted_at])
+  @@map("ExerciseSubmissions")
 }
 
 model InterviewSession {
@@ -255,7 +271,6 @@ enum NoteType {
   user_question
   ai_response
 }
-
 ```
 
 ## File: prisma.config.ts
@@ -362,10 +377,15 @@ export default app;
 ```typescript
 import app from './app';
 import config from './config';
+import http from 'http';
+import { setupInterviewWebSocket } from './api/interviews/interviews.websocket';
+
+const server = http.createServer(app);
+setupInterviewWebSocket(server);
 
 const PORT = config.port;
-app.listen(PORT, () => {
-    console.log(`Server is running on ${PORT}`);
+server.listen(PORT, () => {
+    console.log(`Server (HTTP + WebSocket) is running on ${PORT}`);
 });
 
 
@@ -388,6 +408,8 @@ declare global {
     }
   }
 }
+
+export {};
 ```
 
 ## File: src/middleware/authenticate.ts
@@ -671,6 +693,11 @@ export type UserProgress = Prisma.UserProgressModel
  */
 export type Exercise = Prisma.ExerciseModel
 /**
+ * Model ExerciseSubmission
+ * 
+ */
+export type ExerciseSubmission = Prisma.ExerciseSubmissionModel
+/**
  * Model InterviewSession
  * 
  */
@@ -765,6 +792,11 @@ export type UserProgress = Prisma.UserProgressModel
  * 
  */
 export type Exercise = Prisma.ExerciseModel
+/**
+ * Model ExerciseSubmission
+ * 
+ */
+export type ExerciseSubmission = Prisma.ExerciseSubmissionModel
 /**
  * Model InterviewSession
  * 
@@ -1890,6 +1922,7 @@ export type * from './models/Roadmap'
 export type * from './models/Module'
 export type * from './models/UserProgress'
 export type * from './models/Exercise'
+export type * from './models/ExerciseSubmission'
 export type * from './models/InterviewSession'
 export type * from './models/CV'
 export type * from './models/Certificate'
@@ -1923,7 +1956,7 @@ const config: runtime.GetPrismaClientConfig = {
   "clientVersion": "7.1.0",
   "engineVersion": "ab635e6b9d606fa5c8fb8b1a7f909c3c3c1c98ba",
   "activeProvider": "mysql",
-  "inlineSchema": "generator client {\n  provider = \"prisma-client\"\n  output   = \"../src/generated/prisma\"\n}\n\ndatasource db {\n  provider = \"mysql\"\n}\n\nmodel User {\n  user_id           String             @id @default(uuid()) @db.VarChar(36)\n  email             String             @unique @db.VarChar(255)\n  password_hash     String             @db.VarChar(255)\n  full_name         String             @db.VarChar(100)\n  current_level     Level              @default(beginner)\n  role              Role               @default(user)\n  avatar_url        String?            @db.VarChar(4096)\n  created_at        DateTime           @default(now())\n  updated_at        DateTime           @updatedAt\n  aiNotes           AINote[]\n  cvs               CV[]\n  certificates      Certificate[]\n  interviewSessions InterviewSession[]\n  learningEvents    LearningEvent[]\n  roadmaps          Roadmap[]\n  progress          UserProgress[]\n\n  @@index([email])\n  @@map(\"Users\")\n}\n\nmodel Roadmap {\n  roadmap_id   String        @id @default(uuid()) @db.VarChar(36)\n  title        String        @db.VarChar(100)\n  description  String?       @db.Text\n  category     String        @db.VarChar(50)\n  image_url    String?       @db.VarChar(500)\n  created_by   String        @db.VarChar(36)\n  status       Status        @default(draft)\n  created_at   DateTime      @default(now())\n  updated_at   DateTime      @updatedAt\n  certificates Certificate[]\n  modules      Module[]\n  creator      User          @relation(fields: [created_by], references: [user_id])\n\n  @@index([category])\n  @@index([created_by], map: \"Roadmaps_created_by_fkey\")\n  @@map(\"Roadmaps\")\n}\n\nmodel Module {\n  module_id       String          @id @default(uuid()) @db.VarChar(36)\n  roadmap_id      String          @db.VarChar(36)\n  title           String          @db.VarChar(100)\n  description     String?         @db.Text\n  content         String?         @db.LongText\n  order_index     Int\n  estimated_hours Decimal?        @db.Decimal(4, 1)\n  created_at      DateTime        @default(now())\n  updated_at      DateTime        @updatedAt\n  aiNotes         AINote[]\n  exercises       Exercise[]\n  learningEvents  LearningEvent[]\n  roadmap         Roadmap         @relation(fields: [roadmap_id], references: [roadmap_id], onDelete: Cascade)\n  userProgress    UserProgress[]\n\n  @@unique([roadmap_id, order_index])\n  @@index([roadmap_id, order_index])\n  @@map(\"Modules\")\n}\n\nmodel UserProgress {\n  progress_id           String         @id @default(uuid()) @db.VarChar(36)\n  user_id               String         @db.VarChar(36)\n  module_id             String         @db.VarChar(36)\n  status                ProgressStatus @default(not_started)\n  completion_percentage Decimal        @default(0.00) @db.Decimal(5, 2)\n  started_at            DateTime?\n  completed_at          DateTime?\n  last_accessed_at      DateTime       @default(now()) @updatedAt\n  module                Module         @relation(fields: [module_id], references: [module_id], onDelete: Cascade)\n  user                  User           @relation(fields: [user_id], references: [user_id], onDelete: Cascade)\n\n  @@unique([user_id, module_id])\n  @@index([user_id, status])\n  @@index([module_id], map: \"UserProgress_module_id_fkey\")\n  @@map(\"UserProgress\")\n}\n\nmodel Exercise {\n  exercise_id   String     @id @default(uuid()) @db.VarChar(36)\n  module_id     String     @db.VarChar(36)\n  title         String     @db.VarChar(100)\n  description   String     @db.Text\n  examples      Json?\n  starter_code  String?    @db.MediumText\n  solution_code String?    @db.MediumText\n  difficulty    Difficulty @default(medium)\n  created_at    DateTime   @default(now())\n  updated_at    DateTime   @updatedAt\n  module        Module     @relation(fields: [module_id], references: [module_id], onDelete: Cascade)\n\n  @@index([module_id, difficulty])\n  @@map(\"Exercises\")\n}\n\nmodel InterviewSession {\n  session_id     String        @id @default(uuid()) @db.VarChar(36)\n  user_id        String        @db.VarChar(36)\n  session_name   String        @db.VarChar(100)\n  interview_type InterviewType\n  questions      Json\n  user_answers   Json?\n  ai_feedback    Json?\n  score          Decimal?      @db.Decimal(5, 2)\n  created_at     DateTime      @default(now())\n  user           User          @relation(fields: [user_id], references: [user_id], onDelete: Cascade)\n\n  @@index([user_id, created_at])\n  @@map(\"InterviewSessions\")\n}\n\nmodel CV {\n  cv_id          String        @id @default(uuid()) @db.VarChar(36)\n  user_id        String        @db.VarChar(36)\n  cv_name        String        @db.VarChar(100)\n  template_style TemplateStyle @default(modern)\n  personal_info  Json?\n  education      Json?\n  experience     Json?\n  skills         Json?\n  projects       Json?\n  pdf_url        String?       @db.VarChar(500)\n  created_at     DateTime      @default(now())\n  updated_at     DateTime      @updatedAt\n  user           User          @relation(fields: [user_id], references: [user_id], onDelete: Cascade)\n\n  @@index([user_id, created_at])\n  @@map(\"CVs\")\n}\n\nmodel Certificate {\n  certificate_id   String   @id @default(uuid()) @db.VarChar(36)\n  user_id          String   @db.VarChar(36)\n  roadmap_id       String   @db.VarChar(36)\n  certificate_name String   @db.VarChar(100)\n  issue_date       DateTime @default(now())\n  pdf_url          String?  @db.VarChar(500)\n  roadmap          Roadmap  @relation(fields: [roadmap_id], references: [roadmap_id], onDelete: Cascade)\n  user             User     @relation(fields: [user_id], references: [user_id], onDelete: Cascade)\n\n  @@unique([user_id, roadmap_id])\n  @@index([user_id, roadmap_id])\n  @@index([roadmap_id], map: \"Certificates_roadmap_id_fkey\")\n  @@map(\"Certificates\")\n}\n\nmodel LearningEvent {\n  event_id         String      @id @default(uuid()) @db.VarChar(36)\n  user_id          String      @db.VarChar(36)\n  title            String      @default(\"Study Session\") @db.VarChar(150)\n  description      String?     @db.MediumText\n  status           EventStatus @default(planned)\n  start_utc        DateTime    @db.DateTime(0)\n  end_utc          DateTime    @db.DateTime(0)\n  all_day          Boolean     @default(false)\n  timezone         String      @default(\"Asia/Ho_Chi_Minh\") @db.VarChar(50)\n  module_id        String?     @db.VarChar(36)\n  color            String      @default(\"#3B82F6\") @db.VarChar(7)\n  is_ai_suggested  Boolean     @default(false)\n  reminder_minutes Int?        @db.SmallInt\n  is_deleted       Boolean     @default(false)\n  created_at       DateTime    @default(now())\n  updated_at       DateTime    @updatedAt\n  module           Module?     @relation(fields: [module_id], references: [module_id])\n  user             User        @relation(fields: [user_id], references: [user_id], onDelete: Cascade)\n\n  @@index([user_id, start_utc])\n  @@index([module_id])\n  @@index([user_id, is_ai_suggested])\n  @@map(\"LearningEvents\")\n}\n\nmodel AINote {\n  note_id        String   @id @default(uuid()) @db.VarChar(36)\n  user_id        String   @db.VarChar(36)\n  module_id      String   @db.VarChar(36)\n  note_type      NoteType\n  content        String   @db.LongText\n  created_at     DateTime @default(now())\n  sequence_order Int\n  module         Module   @relation(fields: [module_id], references: [module_id], onDelete: Cascade)\n  user           User     @relation(fields: [user_id], references: [user_id], onDelete: Cascade)\n\n  @@index([user_id, module_id, sequence_order])\n  @@index([module_id, note_type])\n  @@map(\"AINotes\")\n}\n\nenum Level {\n  beginner\n  intermediate\n  advanced\n}\n\nenum Role {\n  user\n  admin\n  creator\n}\n\nenum Status {\n  draft\n  published\n  archived\n}\n\nenum ProgressStatus {\n  not_started\n  in_progress\n  completed\n}\n\nenum Difficulty {\n  easy\n  medium\n  hard\n}\n\nenum InterviewType {\n  simulated\n  prep_feedback\n}\n\nenum TemplateStyle {\n  modern\n  classic\n  minimal\n}\n\nenum EventStatus {\n  planned\n  done\n  missed\n  cancelled\n}\n\nenum NoteType {\n  summary\n  hint\n  explanation\n  feedback\n  user_question\n  ai_response\n}\n",
+  "inlineSchema": "generator client {\n  provider = \"prisma-client\"\n  output   = \"../src/generated/prisma\"\n}\n\ndatasource db {\n  provider = \"mysql\"\n}\n\nmodel User {\n  user_id             String               @id @default(uuid()) @db.VarChar(36)\n  email               String               @unique @db.VarChar(255)\n  password_hash       String               @db.VarChar(255)\n  full_name           String               @db.VarChar(100)\n  current_level       Level                @default(beginner)\n  role                Role                 @default(user)\n  avatar_url          String?              @db.VarChar(4096)\n  created_at          DateTime             @default(now())\n  updated_at          DateTime             @updatedAt\n  aiNotes             AINote[]\n  cvs                 CV[]\n  certificates        Certificate[]\n  interviewSessions   InterviewSession[]\n  learningEvents      LearningEvent[]\n  roadmaps            Roadmap[]\n  progress            UserProgress[]\n  exerciseSubmissions ExerciseSubmission[]\n\n  @@index([email])\n  @@map(\"Users\")\n}\n\nmodel Roadmap {\n  roadmap_id   String        @id @default(uuid()) @db.VarChar(36)\n  title        String        @db.VarChar(100)\n  description  String?       @db.Text\n  category     String        @db.VarChar(50)\n  image_url    String?       @db.VarChar(500)\n  created_by   String        @db.VarChar(36)\n  status       Status        @default(draft)\n  created_at   DateTime      @default(now())\n  updated_at   DateTime      @updatedAt\n  certificates Certificate[]\n  modules      Module[]\n  creator      User          @relation(fields: [created_by], references: [user_id])\n\n  @@index([category])\n  @@index([created_by], map: \"Roadmaps_created_by_fkey\")\n  @@map(\"Roadmaps\")\n}\n\nmodel Module {\n  module_id       String          @id @default(uuid()) @db.VarChar(36)\n  roadmap_id      String          @db.VarChar(36)\n  title           String          @db.VarChar(100)\n  description     String?         @db.Text\n  content         String?         @db.LongText\n  order_index     Int\n  estimated_hours Decimal?        @db.Decimal(4, 1)\n  created_at      DateTime        @default(now())\n  updated_at      DateTime        @updatedAt\n  aiNotes         AINote[]\n  exercises       Exercise[]\n  learningEvents  LearningEvent[]\n  roadmap         Roadmap         @relation(fields: [roadmap_id], references: [roadmap_id], onDelete: Cascade)\n  userProgress    UserProgress[]\n\n  @@unique([roadmap_id, order_index])\n  @@index([roadmap_id, order_index])\n  @@map(\"Modules\")\n}\n\nmodel UserProgress {\n  progress_id           String         @id @default(uuid()) @db.VarChar(36)\n  user_id               String         @db.VarChar(36)\n  module_id             String         @db.VarChar(36)\n  status                ProgressStatus @default(not_started)\n  completion_percentage Decimal        @default(0.00) @db.Decimal(5, 2)\n  started_at            DateTime?\n  completed_at          DateTime?\n  last_accessed_at      DateTime       @default(now()) @updatedAt\n  module                Module         @relation(fields: [module_id], references: [module_id], onDelete: Cascade)\n  user                  User           @relation(fields: [user_id], references: [user_id], onDelete: Cascade)\n\n  @@unique([user_id, module_id])\n  @@index([user_id, status])\n  @@index([module_id], map: \"UserProgress_module_id_fkey\")\n  @@map(\"UserProgress\")\n}\n\nmodel Exercise {\n  exercise_id   String               @id @default(uuid()) @db.VarChar(36)\n  module_id     String               @db.VarChar(36)\n  title         String               @db.VarChar(100)\n  description   String               @db.Text\n  examples      Json?\n  starter_code  String?              @db.MediumText\n  solution_code String?              @db.MediumText\n  difficulty    Difficulty           @default(medium)\n  created_at    DateTime             @default(now())\n  updated_at    DateTime             @updatedAt\n  module        Module               @relation(fields: [module_id], references: [module_id], onDelete: Cascade)\n  submissions   ExerciseSubmission[]\n\n  @@index([module_id, difficulty])\n  @@map(\"Exercises\")\n}\n\nmodel ExerciseSubmission {\n  submission_id String   @id @default(uuid()) @db.VarChar(36)\n  exercise_id   String   @db.VarChar(36)\n  user_id       String   @db.VarChar(36)\n  answer_text   String   @db.LongText\n  submitted_at  DateTime @default(now())\n  exercise      Exercise @relation(fields: [exercise_id], references: [exercise_id], onDelete: Cascade)\n  user          User     @relation(fields: [user_id], references: [user_id], onDelete: Cascade)\n\n  @@index([exercise_id, user_id])\n  @@index([user_id, submitted_at])\n  @@map(\"ExerciseSubmissions\")\n}\n\nmodel InterviewSession {\n  session_id     String        @id @default(uuid()) @db.VarChar(36)\n  user_id        String        @db.VarChar(36)\n  session_name   String        @db.VarChar(100)\n  interview_type InterviewType\n  questions      Json\n  user_answers   Json?\n  ai_feedback    Json?\n  score          Decimal?      @db.Decimal(5, 2)\n  created_at     DateTime      @default(now())\n  user           User          @relation(fields: [user_id], references: [user_id], onDelete: Cascade)\n\n  @@index([user_id, created_at])\n  @@map(\"InterviewSessions\")\n}\n\nmodel CV {\n  cv_id          String        @id @default(uuid()) @db.VarChar(36)\n  user_id        String        @db.VarChar(36)\n  cv_name        String        @db.VarChar(100)\n  template_style TemplateStyle @default(modern)\n  personal_info  Json?\n  education      Json?\n  experience     Json?\n  skills         Json?\n  projects       Json?\n  pdf_url        String?       @db.VarChar(500)\n  created_at     DateTime      @default(now())\n  updated_at     DateTime      @updatedAt\n  user           User          @relation(fields: [user_id], references: [user_id], onDelete: Cascade)\n\n  @@index([user_id, created_at])\n  @@map(\"CVs\")\n}\n\nmodel Certificate {\n  certificate_id   String   @id @default(uuid()) @db.VarChar(36)\n  user_id          String   @db.VarChar(36)\n  roadmap_id       String   @db.VarChar(36)\n  certificate_name String   @db.VarChar(100)\n  issue_date       DateTime @default(now())\n  pdf_url          String?  @db.VarChar(500)\n  roadmap          Roadmap  @relation(fields: [roadmap_id], references: [roadmap_id], onDelete: Cascade)\n  user             User     @relation(fields: [user_id], references: [user_id], onDelete: Cascade)\n\n  @@unique([user_id, roadmap_id])\n  @@index([user_id, roadmap_id])\n  @@index([roadmap_id], map: \"Certificates_roadmap_id_fkey\")\n  @@map(\"Certificates\")\n}\n\nmodel LearningEvent {\n  event_id         String      @id @default(uuid()) @db.VarChar(36)\n  user_id          String      @db.VarChar(36)\n  title            String      @default(\"Study Session\") @db.VarChar(150)\n  description      String?     @db.MediumText\n  status           EventStatus @default(planned)\n  start_utc        DateTime    @db.DateTime(0)\n  end_utc          DateTime    @db.DateTime(0)\n  all_day          Boolean     @default(false)\n  timezone         String      @default(\"Asia/Ho_Chi_Minh\") @db.VarChar(50)\n  module_id        String?     @db.VarChar(36)\n  color            String      @default(\"#3B82F6\") @db.VarChar(7)\n  is_ai_suggested  Boolean     @default(false)\n  reminder_minutes Int?        @db.SmallInt\n  is_deleted       Boolean     @default(false)\n  created_at       DateTime    @default(now())\n  updated_at       DateTime    @updatedAt\n  module           Module?     @relation(fields: [module_id], references: [module_id])\n  user             User        @relation(fields: [user_id], references: [user_id], onDelete: Cascade)\n\n  @@index([user_id, start_utc])\n  @@index([module_id])\n  @@index([user_id, is_ai_suggested])\n  @@map(\"LearningEvents\")\n}\n\nmodel AINote {\n  note_id        String   @id @default(uuid()) @db.VarChar(36)\n  user_id        String   @db.VarChar(36)\n  module_id      String   @db.VarChar(36)\n  note_type      NoteType\n  content        String   @db.LongText\n  created_at     DateTime @default(now())\n  sequence_order Int\n  module         Module   @relation(fields: [module_id], references: [module_id], onDelete: Cascade)\n  user           User     @relation(fields: [user_id], references: [user_id], onDelete: Cascade)\n\n  @@index([user_id, module_id, sequence_order])\n  @@index([module_id, note_type])\n  @@map(\"AINotes\")\n}\n\nenum Level {\n  beginner\n  intermediate\n  advanced\n}\n\nenum Role {\n  user\n  admin\n  creator\n}\n\nenum Status {\n  draft\n  published\n  archived\n}\n\nenum ProgressStatus {\n  not_started\n  in_progress\n  completed\n}\n\nenum Difficulty {\n  easy\n  medium\n  hard\n}\n\nenum InterviewType {\n  simulated\n  prep_feedback\n}\n\nenum TemplateStyle {\n  modern\n  classic\n  minimal\n}\n\nenum EventStatus {\n  planned\n  done\n  missed\n  cancelled\n}\n\nenum NoteType {\n  summary\n  hint\n  explanation\n  feedback\n  user_question\n  ai_response\n}\n",
   "runtimeDataModel": {
     "models": {},
     "enums": {},
@@ -1931,7 +1964,7 @@ const config: runtime.GetPrismaClientConfig = {
   }
 }
 
-config.runtimeDataModel = JSON.parse("{\"models\":{\"User\":{\"fields\":[{\"name\":\"user_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"email\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"password_hash\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"full_name\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"current_level\",\"kind\":\"enum\",\"type\":\"Level\"},{\"name\":\"role\",\"kind\":\"enum\",\"type\":\"Role\"},{\"name\":\"avatar_url\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"created_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"updated_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"aiNotes\",\"kind\":\"object\",\"type\":\"AINote\",\"relationName\":\"AINoteToUser\"},{\"name\":\"cvs\",\"kind\":\"object\",\"type\":\"CV\",\"relationName\":\"CVToUser\"},{\"name\":\"certificates\",\"kind\":\"object\",\"type\":\"Certificate\",\"relationName\":\"CertificateToUser\"},{\"name\":\"interviewSessions\",\"kind\":\"object\",\"type\":\"InterviewSession\",\"relationName\":\"InterviewSessionToUser\"},{\"name\":\"learningEvents\",\"kind\":\"object\",\"type\":\"LearningEvent\",\"relationName\":\"LearningEventToUser\"},{\"name\":\"roadmaps\",\"kind\":\"object\",\"type\":\"Roadmap\",\"relationName\":\"RoadmapToUser\"},{\"name\":\"progress\",\"kind\":\"object\",\"type\":\"UserProgress\",\"relationName\":\"UserToUserProgress\"}],\"dbName\":\"Users\"},\"Roadmap\":{\"fields\":[{\"name\":\"roadmap_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"title\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"description\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"category\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"image_url\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"created_by\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"status\",\"kind\":\"enum\",\"type\":\"Status\"},{\"name\":\"created_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"updated_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"certificates\",\"kind\":\"object\",\"type\":\"Certificate\",\"relationName\":\"CertificateToRoadmap\"},{\"name\":\"modules\",\"kind\":\"object\",\"type\":\"Module\",\"relationName\":\"ModuleToRoadmap\"},{\"name\":\"creator\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"RoadmapToUser\"}],\"dbName\":\"Roadmaps\"},\"Module\":{\"fields\":[{\"name\":\"module_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"roadmap_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"title\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"description\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"content\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"order_index\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"estimated_hours\",\"kind\":\"scalar\",\"type\":\"Decimal\"},{\"name\":\"created_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"updated_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"aiNotes\",\"kind\":\"object\",\"type\":\"AINote\",\"relationName\":\"AINoteToModule\"},{\"name\":\"exercises\",\"kind\":\"object\",\"type\":\"Exercise\",\"relationName\":\"ExerciseToModule\"},{\"name\":\"learningEvents\",\"kind\":\"object\",\"type\":\"LearningEvent\",\"relationName\":\"LearningEventToModule\"},{\"name\":\"roadmap\",\"kind\":\"object\",\"type\":\"Roadmap\",\"relationName\":\"ModuleToRoadmap\"},{\"name\":\"userProgress\",\"kind\":\"object\",\"type\":\"UserProgress\",\"relationName\":\"ModuleToUserProgress\"}],\"dbName\":\"Modules\"},\"UserProgress\":{\"fields\":[{\"name\":\"progress_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"user_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"module_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"status\",\"kind\":\"enum\",\"type\":\"ProgressStatus\"},{\"name\":\"completion_percentage\",\"kind\":\"scalar\",\"type\":\"Decimal\"},{\"name\":\"started_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"completed_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"last_accessed_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"module\",\"kind\":\"object\",\"type\":\"Module\",\"relationName\":\"ModuleToUserProgress\"},{\"name\":\"user\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"UserToUserProgress\"}],\"dbName\":\"UserProgress\"},\"Exercise\":{\"fields\":[{\"name\":\"exercise_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"module_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"title\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"description\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"examples\",\"kind\":\"scalar\",\"type\":\"Json\"},{\"name\":\"starter_code\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"solution_code\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"difficulty\",\"kind\":\"enum\",\"type\":\"Difficulty\"},{\"name\":\"created_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"updated_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"module\",\"kind\":\"object\",\"type\":\"Module\",\"relationName\":\"ExerciseToModule\"}],\"dbName\":\"Exercises\"},\"InterviewSession\":{\"fields\":[{\"name\":\"session_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"user_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"session_name\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"interview_type\",\"kind\":\"enum\",\"type\":\"InterviewType\"},{\"name\":\"questions\",\"kind\":\"scalar\",\"type\":\"Json\"},{\"name\":\"user_answers\",\"kind\":\"scalar\",\"type\":\"Json\"},{\"name\":\"ai_feedback\",\"kind\":\"scalar\",\"type\":\"Json\"},{\"name\":\"score\",\"kind\":\"scalar\",\"type\":\"Decimal\"},{\"name\":\"created_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"user\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"InterviewSessionToUser\"}],\"dbName\":\"InterviewSessions\"},\"CV\":{\"fields\":[{\"name\":\"cv_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"user_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"cv_name\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"template_style\",\"kind\":\"enum\",\"type\":\"TemplateStyle\"},{\"name\":\"personal_info\",\"kind\":\"scalar\",\"type\":\"Json\"},{\"name\":\"education\",\"kind\":\"scalar\",\"type\":\"Json\"},{\"name\":\"experience\",\"kind\":\"scalar\",\"type\":\"Json\"},{\"name\":\"skills\",\"kind\":\"scalar\",\"type\":\"Json\"},{\"name\":\"projects\",\"kind\":\"scalar\",\"type\":\"Json\"},{\"name\":\"pdf_url\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"created_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"updated_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"user\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"CVToUser\"}],\"dbName\":\"CVs\"},\"Certificate\":{\"fields\":[{\"name\":\"certificate_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"user_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"roadmap_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"certificate_name\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"issue_date\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"pdf_url\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"roadmap\",\"kind\":\"object\",\"type\":\"Roadmap\",\"relationName\":\"CertificateToRoadmap\"},{\"name\":\"user\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"CertificateToUser\"}],\"dbName\":\"Certificates\"},\"LearningEvent\":{\"fields\":[{\"name\":\"event_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"user_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"title\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"description\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"status\",\"kind\":\"enum\",\"type\":\"EventStatus\"},{\"name\":\"start_utc\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"end_utc\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"all_day\",\"kind\":\"scalar\",\"type\":\"Boolean\"},{\"name\":\"timezone\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"module_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"color\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"is_ai_suggested\",\"kind\":\"scalar\",\"type\":\"Boolean\"},{\"name\":\"reminder_minutes\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"is_deleted\",\"kind\":\"scalar\",\"type\":\"Boolean\"},{\"name\":\"created_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"updated_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"module\",\"kind\":\"object\",\"type\":\"Module\",\"relationName\":\"LearningEventToModule\"},{\"name\":\"user\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"LearningEventToUser\"}],\"dbName\":\"LearningEvents\"},\"AINote\":{\"fields\":[{\"name\":\"note_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"user_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"module_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"note_type\",\"kind\":\"enum\",\"type\":\"NoteType\"},{\"name\":\"content\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"created_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"sequence_order\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"module\",\"kind\":\"object\",\"type\":\"Module\",\"relationName\":\"AINoteToModule\"},{\"name\":\"user\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"AINoteToUser\"}],\"dbName\":\"AINotes\"}},\"enums\":{},\"types\":{}}")
+config.runtimeDataModel = JSON.parse("{\"models\":{\"User\":{\"fields\":[{\"name\":\"user_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"email\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"password_hash\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"full_name\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"current_level\",\"kind\":\"enum\",\"type\":\"Level\"},{\"name\":\"role\",\"kind\":\"enum\",\"type\":\"Role\"},{\"name\":\"avatar_url\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"created_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"updated_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"aiNotes\",\"kind\":\"object\",\"type\":\"AINote\",\"relationName\":\"AINoteToUser\"},{\"name\":\"cvs\",\"kind\":\"object\",\"type\":\"CV\",\"relationName\":\"CVToUser\"},{\"name\":\"certificates\",\"kind\":\"object\",\"type\":\"Certificate\",\"relationName\":\"CertificateToUser\"},{\"name\":\"interviewSessions\",\"kind\":\"object\",\"type\":\"InterviewSession\",\"relationName\":\"InterviewSessionToUser\"},{\"name\":\"learningEvents\",\"kind\":\"object\",\"type\":\"LearningEvent\",\"relationName\":\"LearningEventToUser\"},{\"name\":\"roadmaps\",\"kind\":\"object\",\"type\":\"Roadmap\",\"relationName\":\"RoadmapToUser\"},{\"name\":\"progress\",\"kind\":\"object\",\"type\":\"UserProgress\",\"relationName\":\"UserToUserProgress\"},{\"name\":\"exerciseSubmissions\",\"kind\":\"object\",\"type\":\"ExerciseSubmission\",\"relationName\":\"ExerciseSubmissionToUser\"}],\"dbName\":\"Users\"},\"Roadmap\":{\"fields\":[{\"name\":\"roadmap_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"title\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"description\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"category\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"image_url\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"created_by\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"status\",\"kind\":\"enum\",\"type\":\"Status\"},{\"name\":\"created_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"updated_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"certificates\",\"kind\":\"object\",\"type\":\"Certificate\",\"relationName\":\"CertificateToRoadmap\"},{\"name\":\"modules\",\"kind\":\"object\",\"type\":\"Module\",\"relationName\":\"ModuleToRoadmap\"},{\"name\":\"creator\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"RoadmapToUser\"}],\"dbName\":\"Roadmaps\"},\"Module\":{\"fields\":[{\"name\":\"module_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"roadmap_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"title\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"description\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"content\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"order_index\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"estimated_hours\",\"kind\":\"scalar\",\"type\":\"Decimal\"},{\"name\":\"created_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"updated_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"aiNotes\",\"kind\":\"object\",\"type\":\"AINote\",\"relationName\":\"AINoteToModule\"},{\"name\":\"exercises\",\"kind\":\"object\",\"type\":\"Exercise\",\"relationName\":\"ExerciseToModule\"},{\"name\":\"learningEvents\",\"kind\":\"object\",\"type\":\"LearningEvent\",\"relationName\":\"LearningEventToModule\"},{\"name\":\"roadmap\",\"kind\":\"object\",\"type\":\"Roadmap\",\"relationName\":\"ModuleToRoadmap\"},{\"name\":\"userProgress\",\"kind\":\"object\",\"type\":\"UserProgress\",\"relationName\":\"ModuleToUserProgress\"}],\"dbName\":\"Modules\"},\"UserProgress\":{\"fields\":[{\"name\":\"progress_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"user_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"module_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"status\",\"kind\":\"enum\",\"type\":\"ProgressStatus\"},{\"name\":\"completion_percentage\",\"kind\":\"scalar\",\"type\":\"Decimal\"},{\"name\":\"started_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"completed_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"last_accessed_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"module\",\"kind\":\"object\",\"type\":\"Module\",\"relationName\":\"ModuleToUserProgress\"},{\"name\":\"user\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"UserToUserProgress\"}],\"dbName\":\"UserProgress\"},\"Exercise\":{\"fields\":[{\"name\":\"exercise_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"module_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"title\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"description\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"examples\",\"kind\":\"scalar\",\"type\":\"Json\"},{\"name\":\"starter_code\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"solution_code\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"difficulty\",\"kind\":\"enum\",\"type\":\"Difficulty\"},{\"name\":\"created_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"updated_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"module\",\"kind\":\"object\",\"type\":\"Module\",\"relationName\":\"ExerciseToModule\"},{\"name\":\"submissions\",\"kind\":\"object\",\"type\":\"ExerciseSubmission\",\"relationName\":\"ExerciseToExerciseSubmission\"}],\"dbName\":\"Exercises\"},\"ExerciseSubmission\":{\"fields\":[{\"name\":\"submission_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"exercise_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"user_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"answer_text\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"submitted_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"exercise\",\"kind\":\"object\",\"type\":\"Exercise\",\"relationName\":\"ExerciseToExerciseSubmission\"},{\"name\":\"user\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"ExerciseSubmissionToUser\"}],\"dbName\":\"ExerciseSubmissions\"},\"InterviewSession\":{\"fields\":[{\"name\":\"session_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"user_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"session_name\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"interview_type\",\"kind\":\"enum\",\"type\":\"InterviewType\"},{\"name\":\"questions\",\"kind\":\"scalar\",\"type\":\"Json\"},{\"name\":\"user_answers\",\"kind\":\"scalar\",\"type\":\"Json\"},{\"name\":\"ai_feedback\",\"kind\":\"scalar\",\"type\":\"Json\"},{\"name\":\"score\",\"kind\":\"scalar\",\"type\":\"Decimal\"},{\"name\":\"created_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"user\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"InterviewSessionToUser\"}],\"dbName\":\"InterviewSessions\"},\"CV\":{\"fields\":[{\"name\":\"cv_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"user_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"cv_name\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"template_style\",\"kind\":\"enum\",\"type\":\"TemplateStyle\"},{\"name\":\"personal_info\",\"kind\":\"scalar\",\"type\":\"Json\"},{\"name\":\"education\",\"kind\":\"scalar\",\"type\":\"Json\"},{\"name\":\"experience\",\"kind\":\"scalar\",\"type\":\"Json\"},{\"name\":\"skills\",\"kind\":\"scalar\",\"type\":\"Json\"},{\"name\":\"projects\",\"kind\":\"scalar\",\"type\":\"Json\"},{\"name\":\"pdf_url\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"created_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"updated_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"user\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"CVToUser\"}],\"dbName\":\"CVs\"},\"Certificate\":{\"fields\":[{\"name\":\"certificate_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"user_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"roadmap_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"certificate_name\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"issue_date\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"pdf_url\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"roadmap\",\"kind\":\"object\",\"type\":\"Roadmap\",\"relationName\":\"CertificateToRoadmap\"},{\"name\":\"user\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"CertificateToUser\"}],\"dbName\":\"Certificates\"},\"LearningEvent\":{\"fields\":[{\"name\":\"event_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"user_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"title\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"description\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"status\",\"kind\":\"enum\",\"type\":\"EventStatus\"},{\"name\":\"start_utc\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"end_utc\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"all_day\",\"kind\":\"scalar\",\"type\":\"Boolean\"},{\"name\":\"timezone\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"module_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"color\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"is_ai_suggested\",\"kind\":\"scalar\",\"type\":\"Boolean\"},{\"name\":\"reminder_minutes\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"is_deleted\",\"kind\":\"scalar\",\"type\":\"Boolean\"},{\"name\":\"created_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"updated_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"module\",\"kind\":\"object\",\"type\":\"Module\",\"relationName\":\"LearningEventToModule\"},{\"name\":\"user\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"LearningEventToUser\"}],\"dbName\":\"LearningEvents\"},\"AINote\":{\"fields\":[{\"name\":\"note_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"user_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"module_id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"note_type\",\"kind\":\"enum\",\"type\":\"NoteType\"},{\"name\":\"content\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"created_at\",\"kind\":\"scalar\",\"type\":\"DateTime\"},{\"name\":\"sequence_order\",\"kind\":\"scalar\",\"type\":\"Int\"},{\"name\":\"module\",\"kind\":\"object\",\"type\":\"Module\",\"relationName\":\"AINoteToModule\"},{\"name\":\"user\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"AINoteToUser\"}],\"dbName\":\"AINotes\"}},\"enums\":{},\"types\":{}}")
 
 async function decodeBase64AsWasm(wasmBase64: string): Promise<WebAssembly.Module> {
   const { Buffer } = await import('node:buffer')
@@ -2126,6 +2159,16 @@ export interface PrismaClient<
     * ```
     */
   get exercise(): Prisma.ExerciseDelegate<ExtArgs, { omit: OmitOpts }>;
+
+  /**
+   * `prisma.exerciseSubmission`: Exposes CRUD operations for the **ExerciseSubmission** model.
+    * Example usage:
+    * ```ts
+    * // Fetch zero or more ExerciseSubmissions
+    * const exerciseSubmissions = await prisma.exerciseSubmission.findMany()
+    * ```
+    */
+  get exerciseSubmission(): Prisma.ExerciseSubmissionDelegate<ExtArgs, { omit: OmitOpts }>;
 
   /**
    * `prisma.interviewSession`: Exposes CRUD operations for the **InterviewSession** model.
@@ -2578,6 +2621,7 @@ export const ModelName = {
   Module: 'Module',
   UserProgress: 'UserProgress',
   Exercise: 'Exercise',
+  ExerciseSubmission: 'ExerciseSubmission',
   InterviewSession: 'InterviewSession',
   CV: 'CV',
   Certificate: 'Certificate',
@@ -2598,7 +2642,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "roadmap" | "module" | "userProgress" | "exercise" | "interviewSession" | "cV" | "certificate" | "learningEvent" | "aINote"
+    modelProps: "user" | "roadmap" | "module" | "userProgress" | "exercise" | "exerciseSubmission" | "interviewSession" | "cV" | "certificate" | "learningEvent" | "aINote"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -2929,6 +2973,72 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.ExerciseCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.ExerciseCountAggregateOutputType> | number
+        }
+      }
+    }
+    ExerciseSubmission: {
+      payload: Prisma.$ExerciseSubmissionPayload<ExtArgs>
+      fields: Prisma.ExerciseSubmissionFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ExerciseSubmissionFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExerciseSubmissionPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ExerciseSubmissionFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExerciseSubmissionPayload>
+        }
+        findFirst: {
+          args: Prisma.ExerciseSubmissionFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExerciseSubmissionPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ExerciseSubmissionFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExerciseSubmissionPayload>
+        }
+        findMany: {
+          args: Prisma.ExerciseSubmissionFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExerciseSubmissionPayload>[]
+        }
+        create: {
+          args: Prisma.ExerciseSubmissionCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExerciseSubmissionPayload>
+        }
+        createMany: {
+          args: Prisma.ExerciseSubmissionCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        delete: {
+          args: Prisma.ExerciseSubmissionDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExerciseSubmissionPayload>
+        }
+        update: {
+          args: Prisma.ExerciseSubmissionUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExerciseSubmissionPayload>
+        }
+        deleteMany: {
+          args: Prisma.ExerciseSubmissionDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ExerciseSubmissionUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        upsert: {
+          args: Prisma.ExerciseSubmissionUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ExerciseSubmissionPayload>
+        }
+        aggregate: {
+          args: Prisma.ExerciseSubmissionAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateExerciseSubmission>
+        }
+        groupBy: {
+          args: Prisma.ExerciseSubmissionGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ExerciseSubmissionGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ExerciseSubmissionCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ExerciseSubmissionCountAggregateOutputType> | number
         }
       }
     }
@@ -3376,6 +3486,17 @@ export const ExerciseScalarFieldEnum = {
 export type ExerciseScalarFieldEnum = (typeof ExerciseScalarFieldEnum)[keyof typeof ExerciseScalarFieldEnum]
 
 
+export const ExerciseSubmissionScalarFieldEnum = {
+  submission_id: 'submission_id',
+  exercise_id: 'exercise_id',
+  user_id: 'user_id',
+  answer_text: 'answer_text',
+  submitted_at: 'submitted_at'
+} as const
+
+export type ExerciseSubmissionScalarFieldEnum = (typeof ExerciseSubmissionScalarFieldEnum)[keyof typeof ExerciseSubmissionScalarFieldEnum]
+
+
 export const InterviewSessionScalarFieldEnum = {
   session_id: 'session_id',
   user_id: 'user_id',
@@ -3557,6 +3678,16 @@ export const ExerciseOrderByRelevanceFieldEnum = {
 } as const
 
 export type ExerciseOrderByRelevanceFieldEnum = (typeof ExerciseOrderByRelevanceFieldEnum)[keyof typeof ExerciseOrderByRelevanceFieldEnum]
+
+
+export const ExerciseSubmissionOrderByRelevanceFieldEnum = {
+  submission_id: 'submission_id',
+  exercise_id: 'exercise_id',
+  user_id: 'user_id',
+  answer_text: 'answer_text'
+} as const
+
+export type ExerciseSubmissionOrderByRelevanceFieldEnum = (typeof ExerciseSubmissionOrderByRelevanceFieldEnum)[keyof typeof ExerciseSubmissionOrderByRelevanceFieldEnum]
 
 
 export const InterviewSessionOrderByRelevanceFieldEnum = {
@@ -3836,6 +3967,7 @@ export type GlobalOmitConfig = {
   module?: Prisma.ModuleOmit
   userProgress?: Prisma.UserProgressOmit
   exercise?: Prisma.ExerciseOmit
+  exerciseSubmission?: Prisma.ExerciseSubmissionOmit
   interviewSession?: Prisma.InterviewSessionOmit
   cV?: Prisma.CVOmit
   certificate?: Prisma.CertificateOmit
@@ -3968,6 +4100,7 @@ export const ModelName = {
   Module: 'Module',
   UserProgress: 'UserProgress',
   Exercise: 'Exercise',
+  ExerciseSubmission: 'ExerciseSubmission',
   InterviewSession: 'InterviewSession',
   CV: 'CV',
   Certificate: 'Certificate',
@@ -4064,6 +4197,17 @@ export const ExerciseScalarFieldEnum = {
 } as const
 
 export type ExerciseScalarFieldEnum = (typeof ExerciseScalarFieldEnum)[keyof typeof ExerciseScalarFieldEnum]
+
+
+export const ExerciseSubmissionScalarFieldEnum = {
+  submission_id: 'submission_id',
+  exercise_id: 'exercise_id',
+  user_id: 'user_id',
+  answer_text: 'answer_text',
+  submitted_at: 'submitted_at'
+} as const
+
+export type ExerciseSubmissionScalarFieldEnum = (typeof ExerciseSubmissionScalarFieldEnum)[keyof typeof ExerciseSubmissionScalarFieldEnum]
 
 
 export const InterviewSessionScalarFieldEnum = {
@@ -4247,6 +4391,16 @@ export const ExerciseOrderByRelevanceFieldEnum = {
 } as const
 
 export type ExerciseOrderByRelevanceFieldEnum = (typeof ExerciseOrderByRelevanceFieldEnum)[keyof typeof ExerciseOrderByRelevanceFieldEnum]
+
+
+export const ExerciseSubmissionOrderByRelevanceFieldEnum = {
+  submission_id: 'submission_id',
+  exercise_id: 'exercise_id',
+  user_id: 'user_id',
+  answer_text: 'answer_text'
+} as const
+
+export type ExerciseSubmissionOrderByRelevanceFieldEnum = (typeof ExerciseSubmissionOrderByRelevanceFieldEnum)[keyof typeof ExerciseSubmissionOrderByRelevanceFieldEnum]
 
 
 export const InterviewSessionOrderByRelevanceFieldEnum = {
@@ -8808,6 +8962,7 @@ export type ExerciseWhereInput = {
   created_at?: Prisma.DateTimeFilter<"Exercise"> | Date | string
   updated_at?: Prisma.DateTimeFilter<"Exercise"> | Date | string
   module?: Prisma.XOR<Prisma.ModuleScalarRelationFilter, Prisma.ModuleWhereInput>
+  submissions?: Prisma.ExerciseSubmissionListRelationFilter
 }
 
 export type ExerciseOrderByWithRelationInput = {
@@ -8822,6 +8977,7 @@ export type ExerciseOrderByWithRelationInput = {
   created_at?: Prisma.SortOrder
   updated_at?: Prisma.SortOrder
   module?: Prisma.ModuleOrderByWithRelationInput
+  submissions?: Prisma.ExerciseSubmissionOrderByRelationAggregateInput
   _relevance?: Prisma.ExerciseOrderByRelevanceInput
 }
 
@@ -8840,6 +8996,7 @@ export type ExerciseWhereUniqueInput = Prisma.AtLeast<{
   created_at?: Prisma.DateTimeFilter<"Exercise"> | Date | string
   updated_at?: Prisma.DateTimeFilter<"Exercise"> | Date | string
   module?: Prisma.XOR<Prisma.ModuleScalarRelationFilter, Prisma.ModuleWhereInput>
+  submissions?: Prisma.ExerciseSubmissionListRelationFilter
 }, "exercise_id">
 
 export type ExerciseOrderByWithAggregationInput = {
@@ -8885,6 +9042,7 @@ export type ExerciseCreateInput = {
   created_at?: Date | string
   updated_at?: Date | string
   module: Prisma.ModuleCreateNestedOneWithoutExercisesInput
+  submissions?: Prisma.ExerciseSubmissionCreateNestedManyWithoutExerciseInput
 }
 
 export type ExerciseUncheckedCreateInput = {
@@ -8898,6 +9056,7 @@ export type ExerciseUncheckedCreateInput = {
   difficulty?: $Enums.Difficulty
   created_at?: Date | string
   updated_at?: Date | string
+  submissions?: Prisma.ExerciseSubmissionUncheckedCreateNestedManyWithoutExerciseInput
 }
 
 export type ExerciseUpdateInput = {
@@ -8911,6 +9070,7 @@ export type ExerciseUpdateInput = {
   created_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updated_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   module?: Prisma.ModuleUpdateOneRequiredWithoutExercisesNestedInput
+  submissions?: Prisma.ExerciseSubmissionUpdateManyWithoutExerciseNestedInput
 }
 
 export type ExerciseUncheckedUpdateInput = {
@@ -8924,6 +9084,7 @@ export type ExerciseUncheckedUpdateInput = {
   difficulty?: Prisma.EnumDifficultyFieldUpdateOperationsInput | $Enums.Difficulty
   created_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updated_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  submissions?: Prisma.ExerciseSubmissionUncheckedUpdateManyWithoutExerciseNestedInput
 }
 
 export type ExerciseCreateManyInput = {
@@ -9017,6 +9178,11 @@ export type ExerciseMinOrderByAggregateInput = {
   updated_at?: Prisma.SortOrder
 }
 
+export type ExerciseScalarRelationFilter = {
+  is?: Prisma.ExerciseWhereInput
+  isNot?: Prisma.ExerciseWhereInput
+}
+
 export type ExerciseCreateNestedManyWithoutModuleInput = {
   create?: Prisma.XOR<Prisma.ExerciseCreateWithoutModuleInput, Prisma.ExerciseUncheckedCreateWithoutModuleInput> | Prisma.ExerciseCreateWithoutModuleInput[] | Prisma.ExerciseUncheckedCreateWithoutModuleInput[]
   connectOrCreate?: Prisma.ExerciseCreateOrConnectWithoutModuleInput | Prisma.ExerciseCreateOrConnectWithoutModuleInput[]
@@ -9063,6 +9229,20 @@ export type EnumDifficultyFieldUpdateOperationsInput = {
   set?: $Enums.Difficulty
 }
 
+export type ExerciseCreateNestedOneWithoutSubmissionsInput = {
+  create?: Prisma.XOR<Prisma.ExerciseCreateWithoutSubmissionsInput, Prisma.ExerciseUncheckedCreateWithoutSubmissionsInput>
+  connectOrCreate?: Prisma.ExerciseCreateOrConnectWithoutSubmissionsInput
+  connect?: Prisma.ExerciseWhereUniqueInput
+}
+
+export type ExerciseUpdateOneRequiredWithoutSubmissionsNestedInput = {
+  create?: Prisma.XOR<Prisma.ExerciseCreateWithoutSubmissionsInput, Prisma.ExerciseUncheckedCreateWithoutSubmissionsInput>
+  connectOrCreate?: Prisma.ExerciseCreateOrConnectWithoutSubmissionsInput
+  upsert?: Prisma.ExerciseUpsertWithoutSubmissionsInput
+  connect?: Prisma.ExerciseWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.ExerciseUpdateToOneWithWhereWithoutSubmissionsInput, Prisma.ExerciseUpdateWithoutSubmissionsInput>, Prisma.ExerciseUncheckedUpdateWithoutSubmissionsInput>
+}
+
 export type ExerciseCreateWithoutModuleInput = {
   exercise_id?: string
   title: string
@@ -9073,6 +9253,7 @@ export type ExerciseCreateWithoutModuleInput = {
   difficulty?: $Enums.Difficulty
   created_at?: Date | string
   updated_at?: Date | string
+  submissions?: Prisma.ExerciseSubmissionCreateNestedManyWithoutExerciseInput
 }
 
 export type ExerciseUncheckedCreateWithoutModuleInput = {
@@ -9085,6 +9266,7 @@ export type ExerciseUncheckedCreateWithoutModuleInput = {
   difficulty?: $Enums.Difficulty
   created_at?: Date | string
   updated_at?: Date | string
+  submissions?: Prisma.ExerciseSubmissionUncheckedCreateNestedManyWithoutExerciseInput
 }
 
 export type ExerciseCreateOrConnectWithoutModuleInput = {
@@ -9129,6 +9311,74 @@ export type ExerciseScalarWhereInput = {
   updated_at?: Prisma.DateTimeFilter<"Exercise"> | Date | string
 }
 
+export type ExerciseCreateWithoutSubmissionsInput = {
+  exercise_id?: string
+  title: string
+  description: string
+  examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  starter_code?: string | null
+  solution_code?: string | null
+  difficulty?: $Enums.Difficulty
+  created_at?: Date | string
+  updated_at?: Date | string
+  module: Prisma.ModuleCreateNestedOneWithoutExercisesInput
+}
+
+export type ExerciseUncheckedCreateWithoutSubmissionsInput = {
+  exercise_id?: string
+  module_id: string
+  title: string
+  description: string
+  examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  starter_code?: string | null
+  solution_code?: string | null
+  difficulty?: $Enums.Difficulty
+  created_at?: Date | string
+  updated_at?: Date | string
+}
+
+export type ExerciseCreateOrConnectWithoutSubmissionsInput = {
+  where: Prisma.ExerciseWhereUniqueInput
+  create: Prisma.XOR<Prisma.ExerciseCreateWithoutSubmissionsInput, Prisma.ExerciseUncheckedCreateWithoutSubmissionsInput>
+}
+
+export type ExerciseUpsertWithoutSubmissionsInput = {
+  update: Prisma.XOR<Prisma.ExerciseUpdateWithoutSubmissionsInput, Prisma.ExerciseUncheckedUpdateWithoutSubmissionsInput>
+  create: Prisma.XOR<Prisma.ExerciseCreateWithoutSubmissionsInput, Prisma.ExerciseUncheckedCreateWithoutSubmissionsInput>
+  where?: Prisma.ExerciseWhereInput
+}
+
+export type ExerciseUpdateToOneWithWhereWithoutSubmissionsInput = {
+  where?: Prisma.ExerciseWhereInput
+  data: Prisma.XOR<Prisma.ExerciseUpdateWithoutSubmissionsInput, Prisma.ExerciseUncheckedUpdateWithoutSubmissionsInput>
+}
+
+export type ExerciseUpdateWithoutSubmissionsInput = {
+  exercise_id?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.StringFieldUpdateOperationsInput | string
+  examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  starter_code?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  solution_code?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  difficulty?: Prisma.EnumDifficultyFieldUpdateOperationsInput | $Enums.Difficulty
+  created_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updated_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  module?: Prisma.ModuleUpdateOneRequiredWithoutExercisesNestedInput
+}
+
+export type ExerciseUncheckedUpdateWithoutSubmissionsInput = {
+  exercise_id?: Prisma.StringFieldUpdateOperationsInput | string
+  module_id?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.StringFieldUpdateOperationsInput | string
+  examples?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  starter_code?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  solution_code?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  difficulty?: Prisma.EnumDifficultyFieldUpdateOperationsInput | $Enums.Difficulty
+  created_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updated_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
 export type ExerciseCreateManyModuleInput = {
   exercise_id?: string
   title: string
@@ -9151,6 +9401,7 @@ export type ExerciseUpdateWithoutModuleInput = {
   difficulty?: Prisma.EnumDifficultyFieldUpdateOperationsInput | $Enums.Difficulty
   created_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updated_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  submissions?: Prisma.ExerciseSubmissionUpdateManyWithoutExerciseNestedInput
 }
 
 export type ExerciseUncheckedUpdateWithoutModuleInput = {
@@ -9163,6 +9414,7 @@ export type ExerciseUncheckedUpdateWithoutModuleInput = {
   difficulty?: Prisma.EnumDifficultyFieldUpdateOperationsInput | $Enums.Difficulty
   created_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updated_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  submissions?: Prisma.ExerciseSubmissionUncheckedUpdateManyWithoutExerciseNestedInput
 }
 
 export type ExerciseUncheckedUpdateManyWithoutModuleInput = {
@@ -9178,6 +9430,35 @@ export type ExerciseUncheckedUpdateManyWithoutModuleInput = {
 }
 
 
+/**
+ * Count Type ExerciseCountOutputType
+ */
+
+export type ExerciseCountOutputType = {
+  submissions: number
+}
+
+export type ExerciseCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  submissions?: boolean | ExerciseCountOutputTypeCountSubmissionsArgs
+}
+
+/**
+ * ExerciseCountOutputType without action
+ */
+export type ExerciseCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ExerciseCountOutputType
+   */
+  select?: Prisma.ExerciseCountOutputTypeSelect<ExtArgs> | null
+}
+
+/**
+ * ExerciseCountOutputType without action
+ */
+export type ExerciseCountOutputTypeCountSubmissionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ExerciseSubmissionWhereInput
+}
+
 
 export type ExerciseSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   exercise_id?: boolean
@@ -9191,6 +9472,8 @@ export type ExerciseSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs
   created_at?: boolean
   updated_at?: boolean
   module?: boolean | Prisma.ModuleDefaultArgs<ExtArgs>
+  submissions?: boolean | Prisma.Exercise$submissionsArgs<ExtArgs>
+  _count?: boolean | Prisma.ExerciseCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["exercise"]>
 
 
@@ -9211,12 +9494,15 @@ export type ExerciseSelectScalar = {
 export type ExerciseOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"exercise_id" | "module_id" | "title" | "description" | "examples" | "starter_code" | "solution_code" | "difficulty" | "created_at" | "updated_at", ExtArgs["result"]["exercise"]>
 export type ExerciseInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   module?: boolean | Prisma.ModuleDefaultArgs<ExtArgs>
+  submissions?: boolean | Prisma.Exercise$submissionsArgs<ExtArgs>
+  _count?: boolean | Prisma.ExerciseCountOutputTypeDefaultArgs<ExtArgs>
 }
 
 export type $ExercisePayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "Exercise"
   objects: {
     module: Prisma.$ModulePayload<ExtArgs>
+    submissions: Prisma.$ExerciseSubmissionPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     exercise_id: string
@@ -9570,6 +9856,7 @@ readonly fields: ExerciseFieldRefs;
 export interface Prisma__ExerciseClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   module<T extends Prisma.ModuleDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ModuleDefaultArgs<ExtArgs>>): Prisma.Prisma__ModuleClient<runtime.Types.Result.GetResult<Prisma.$ModulePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  submissions<T extends Prisma.Exercise$submissionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Exercise$submissionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ExerciseSubmissionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -9952,6 +10239,30 @@ export type ExerciseDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.Inte
 }
 
 /**
+ * Exercise.submissions
+ */
+export type Exercise$submissionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ExerciseSubmission
+   */
+  select?: Prisma.ExerciseSubmissionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ExerciseSubmission
+   */
+  omit?: Prisma.ExerciseSubmissionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ExerciseSubmissionInclude<ExtArgs> | null
+  where?: Prisma.ExerciseSubmissionWhereInput
+  orderBy?: Prisma.ExerciseSubmissionOrderByWithRelationInput | Prisma.ExerciseSubmissionOrderByWithRelationInput[]
+  cursor?: Prisma.ExerciseSubmissionWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ExerciseSubmissionScalarFieldEnum | Prisma.ExerciseSubmissionScalarFieldEnum[]
+}
+
+/**
  * Exercise without action
  */
 export type ExerciseDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -9967,6 +10278,1346 @@ export type ExerciseDefaultArgs<ExtArgs extends runtime.Types.Extensions.Interna
    * Choose, which related nodes to fetch as well
    */
   include?: Prisma.ExerciseInclude<ExtArgs> | null
+}
+
+```
+
+## File: src/generated/prisma/models/ExerciseSubmission.ts
+
+```typescript
+
+/* !!! This is code generated by Prisma. Do not edit directly. !!! */
+/* eslint-disable */
+// biome-ignore-all lint: generated file
+// @ts-nocheck 
+/*
+ * This file exports the `ExerciseSubmission` model and its related types.
+ *
+ * 🟢 You can import this file directly.
+ */
+import type * as runtime from "@prisma/client/runtime/client"
+import type * as $Enums from "../enums"
+import type * as Prisma from "../internal/prismaNamespace"
+
+/**
+ * Model ExerciseSubmission
+ * 
+ */
+export type ExerciseSubmissionModel = runtime.Types.Result.DefaultSelection<Prisma.$ExerciseSubmissionPayload>
+
+export type AggregateExerciseSubmission = {
+  _count: ExerciseSubmissionCountAggregateOutputType | null
+  _min: ExerciseSubmissionMinAggregateOutputType | null
+  _max: ExerciseSubmissionMaxAggregateOutputType | null
+}
+
+export type ExerciseSubmissionMinAggregateOutputType = {
+  submission_id: string | null
+  exercise_id: string | null
+  user_id: string | null
+  answer_text: string | null
+  submitted_at: Date | null
+}
+
+export type ExerciseSubmissionMaxAggregateOutputType = {
+  submission_id: string | null
+  exercise_id: string | null
+  user_id: string | null
+  answer_text: string | null
+  submitted_at: Date | null
+}
+
+export type ExerciseSubmissionCountAggregateOutputType = {
+  submission_id: number
+  exercise_id: number
+  user_id: number
+  answer_text: number
+  submitted_at: number
+  _all: number
+}
+
+
+export type ExerciseSubmissionMinAggregateInputType = {
+  submission_id?: true
+  exercise_id?: true
+  user_id?: true
+  answer_text?: true
+  submitted_at?: true
+}
+
+export type ExerciseSubmissionMaxAggregateInputType = {
+  submission_id?: true
+  exercise_id?: true
+  user_id?: true
+  answer_text?: true
+  submitted_at?: true
+}
+
+export type ExerciseSubmissionCountAggregateInputType = {
+  submission_id?: true
+  exercise_id?: true
+  user_id?: true
+  answer_text?: true
+  submitted_at?: true
+  _all?: true
+}
+
+export type ExerciseSubmissionAggregateArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Filter which ExerciseSubmission to aggregate.
+   */
+  where?: Prisma.ExerciseSubmissionWhereInput
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+   * 
+   * Determine the order of ExerciseSubmissions to fetch.
+   */
+  orderBy?: Prisma.ExerciseSubmissionOrderByWithRelationInput | Prisma.ExerciseSubmissionOrderByWithRelationInput[]
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+   * 
+   * Sets the start position
+   */
+  cursor?: Prisma.ExerciseSubmissionWhereUniqueInput
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+   * 
+   * Take `±n` ExerciseSubmissions from the position of the cursor.
+   */
+  take?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+   * 
+   * Skip the first `n` ExerciseSubmissions.
+   */
+  skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
+   * Count returned ExerciseSubmissions
+  **/
+  _count?: true | ExerciseSubmissionCountAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
+   * Select which fields to find the minimum value
+  **/
+  _min?: ExerciseSubmissionMinAggregateInputType
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/aggregations Aggregation Docs}
+   * 
+   * Select which fields to find the maximum value
+  **/
+  _max?: ExerciseSubmissionMaxAggregateInputType
+}
+
+export type GetExerciseSubmissionAggregateType<T extends ExerciseSubmissionAggregateArgs> = {
+      [P in keyof T & keyof AggregateExerciseSubmission]: P extends '_count' | 'count'
+    ? T[P] extends true
+      ? number
+      : Prisma.GetScalarType<T[P], AggregateExerciseSubmission[P]>
+    : Prisma.GetScalarType<T[P], AggregateExerciseSubmission[P]>
+}
+
+
+
+
+export type ExerciseSubmissionGroupByArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ExerciseSubmissionWhereInput
+  orderBy?: Prisma.ExerciseSubmissionOrderByWithAggregationInput | Prisma.ExerciseSubmissionOrderByWithAggregationInput[]
+  by: Prisma.ExerciseSubmissionScalarFieldEnum[] | Prisma.ExerciseSubmissionScalarFieldEnum
+  having?: Prisma.ExerciseSubmissionScalarWhereWithAggregatesInput
+  take?: number
+  skip?: number
+  _count?: ExerciseSubmissionCountAggregateInputType | true
+  _min?: ExerciseSubmissionMinAggregateInputType
+  _max?: ExerciseSubmissionMaxAggregateInputType
+}
+
+export type ExerciseSubmissionGroupByOutputType = {
+  submission_id: string
+  exercise_id: string
+  user_id: string
+  answer_text: string
+  submitted_at: Date
+  _count: ExerciseSubmissionCountAggregateOutputType | null
+  _min: ExerciseSubmissionMinAggregateOutputType | null
+  _max: ExerciseSubmissionMaxAggregateOutputType | null
+}
+
+type GetExerciseSubmissionGroupByPayload<T extends ExerciseSubmissionGroupByArgs> = Prisma.PrismaPromise<
+  Array<
+    Prisma.PickEnumerable<ExerciseSubmissionGroupByOutputType, T['by']> &
+      {
+        [P in ((keyof T) & (keyof ExerciseSubmissionGroupByOutputType))]: P extends '_count'
+          ? T[P] extends boolean
+            ? number
+            : Prisma.GetScalarType<T[P], ExerciseSubmissionGroupByOutputType[P]>
+          : Prisma.GetScalarType<T[P], ExerciseSubmissionGroupByOutputType[P]>
+      }
+    >
+  >
+
+
+
+export type ExerciseSubmissionWhereInput = {
+  AND?: Prisma.ExerciseSubmissionWhereInput | Prisma.ExerciseSubmissionWhereInput[]
+  OR?: Prisma.ExerciseSubmissionWhereInput[]
+  NOT?: Prisma.ExerciseSubmissionWhereInput | Prisma.ExerciseSubmissionWhereInput[]
+  submission_id?: Prisma.StringFilter<"ExerciseSubmission"> | string
+  exercise_id?: Prisma.StringFilter<"ExerciseSubmission"> | string
+  user_id?: Prisma.StringFilter<"ExerciseSubmission"> | string
+  answer_text?: Prisma.StringFilter<"ExerciseSubmission"> | string
+  submitted_at?: Prisma.DateTimeFilter<"ExerciseSubmission"> | Date | string
+  exercise?: Prisma.XOR<Prisma.ExerciseScalarRelationFilter, Prisma.ExerciseWhereInput>
+  user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
+}
+
+export type ExerciseSubmissionOrderByWithRelationInput = {
+  submission_id?: Prisma.SortOrder
+  exercise_id?: Prisma.SortOrder
+  user_id?: Prisma.SortOrder
+  answer_text?: Prisma.SortOrder
+  submitted_at?: Prisma.SortOrder
+  exercise?: Prisma.ExerciseOrderByWithRelationInput
+  user?: Prisma.UserOrderByWithRelationInput
+  _relevance?: Prisma.ExerciseSubmissionOrderByRelevanceInput
+}
+
+export type ExerciseSubmissionWhereUniqueInput = Prisma.AtLeast<{
+  submission_id?: string
+  AND?: Prisma.ExerciseSubmissionWhereInput | Prisma.ExerciseSubmissionWhereInput[]
+  OR?: Prisma.ExerciseSubmissionWhereInput[]
+  NOT?: Prisma.ExerciseSubmissionWhereInput | Prisma.ExerciseSubmissionWhereInput[]
+  exercise_id?: Prisma.StringFilter<"ExerciseSubmission"> | string
+  user_id?: Prisma.StringFilter<"ExerciseSubmission"> | string
+  answer_text?: Prisma.StringFilter<"ExerciseSubmission"> | string
+  submitted_at?: Prisma.DateTimeFilter<"ExerciseSubmission"> | Date | string
+  exercise?: Prisma.XOR<Prisma.ExerciseScalarRelationFilter, Prisma.ExerciseWhereInput>
+  user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
+}, "submission_id">
+
+export type ExerciseSubmissionOrderByWithAggregationInput = {
+  submission_id?: Prisma.SortOrder
+  exercise_id?: Prisma.SortOrder
+  user_id?: Prisma.SortOrder
+  answer_text?: Prisma.SortOrder
+  submitted_at?: Prisma.SortOrder
+  _count?: Prisma.ExerciseSubmissionCountOrderByAggregateInput
+  _max?: Prisma.ExerciseSubmissionMaxOrderByAggregateInput
+  _min?: Prisma.ExerciseSubmissionMinOrderByAggregateInput
+}
+
+export type ExerciseSubmissionScalarWhereWithAggregatesInput = {
+  AND?: Prisma.ExerciseSubmissionScalarWhereWithAggregatesInput | Prisma.ExerciseSubmissionScalarWhereWithAggregatesInput[]
+  OR?: Prisma.ExerciseSubmissionScalarWhereWithAggregatesInput[]
+  NOT?: Prisma.ExerciseSubmissionScalarWhereWithAggregatesInput | Prisma.ExerciseSubmissionScalarWhereWithAggregatesInput[]
+  submission_id?: Prisma.StringWithAggregatesFilter<"ExerciseSubmission"> | string
+  exercise_id?: Prisma.StringWithAggregatesFilter<"ExerciseSubmission"> | string
+  user_id?: Prisma.StringWithAggregatesFilter<"ExerciseSubmission"> | string
+  answer_text?: Prisma.StringWithAggregatesFilter<"ExerciseSubmission"> | string
+  submitted_at?: Prisma.DateTimeWithAggregatesFilter<"ExerciseSubmission"> | Date | string
+}
+
+export type ExerciseSubmissionCreateInput = {
+  submission_id?: string
+  answer_text: string
+  submitted_at?: Date | string
+  exercise: Prisma.ExerciseCreateNestedOneWithoutSubmissionsInput
+  user: Prisma.UserCreateNestedOneWithoutExerciseSubmissionsInput
+}
+
+export type ExerciseSubmissionUncheckedCreateInput = {
+  submission_id?: string
+  exercise_id: string
+  user_id: string
+  answer_text: string
+  submitted_at?: Date | string
+}
+
+export type ExerciseSubmissionUpdateInput = {
+  submission_id?: Prisma.StringFieldUpdateOperationsInput | string
+  answer_text?: Prisma.StringFieldUpdateOperationsInput | string
+  submitted_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  exercise?: Prisma.ExerciseUpdateOneRequiredWithoutSubmissionsNestedInput
+  user?: Prisma.UserUpdateOneRequiredWithoutExerciseSubmissionsNestedInput
+}
+
+export type ExerciseSubmissionUncheckedUpdateInput = {
+  submission_id?: Prisma.StringFieldUpdateOperationsInput | string
+  exercise_id?: Prisma.StringFieldUpdateOperationsInput | string
+  user_id?: Prisma.StringFieldUpdateOperationsInput | string
+  answer_text?: Prisma.StringFieldUpdateOperationsInput | string
+  submitted_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type ExerciseSubmissionCreateManyInput = {
+  submission_id?: string
+  exercise_id: string
+  user_id: string
+  answer_text: string
+  submitted_at?: Date | string
+}
+
+export type ExerciseSubmissionUpdateManyMutationInput = {
+  submission_id?: Prisma.StringFieldUpdateOperationsInput | string
+  answer_text?: Prisma.StringFieldUpdateOperationsInput | string
+  submitted_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type ExerciseSubmissionUncheckedUpdateManyInput = {
+  submission_id?: Prisma.StringFieldUpdateOperationsInput | string
+  exercise_id?: Prisma.StringFieldUpdateOperationsInput | string
+  user_id?: Prisma.StringFieldUpdateOperationsInput | string
+  answer_text?: Prisma.StringFieldUpdateOperationsInput | string
+  submitted_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type ExerciseSubmissionListRelationFilter = {
+  every?: Prisma.ExerciseSubmissionWhereInput
+  some?: Prisma.ExerciseSubmissionWhereInput
+  none?: Prisma.ExerciseSubmissionWhereInput
+}
+
+export type ExerciseSubmissionOrderByRelationAggregateInput = {
+  _count?: Prisma.SortOrder
+}
+
+export type ExerciseSubmissionOrderByRelevanceInput = {
+  fields: Prisma.ExerciseSubmissionOrderByRelevanceFieldEnum | Prisma.ExerciseSubmissionOrderByRelevanceFieldEnum[]
+  sort: Prisma.SortOrder
+  search: string
+}
+
+export type ExerciseSubmissionCountOrderByAggregateInput = {
+  submission_id?: Prisma.SortOrder
+  exercise_id?: Prisma.SortOrder
+  user_id?: Prisma.SortOrder
+  answer_text?: Prisma.SortOrder
+  submitted_at?: Prisma.SortOrder
+}
+
+export type ExerciseSubmissionMaxOrderByAggregateInput = {
+  submission_id?: Prisma.SortOrder
+  exercise_id?: Prisma.SortOrder
+  user_id?: Prisma.SortOrder
+  answer_text?: Prisma.SortOrder
+  submitted_at?: Prisma.SortOrder
+}
+
+export type ExerciseSubmissionMinOrderByAggregateInput = {
+  submission_id?: Prisma.SortOrder
+  exercise_id?: Prisma.SortOrder
+  user_id?: Prisma.SortOrder
+  answer_text?: Prisma.SortOrder
+  submitted_at?: Prisma.SortOrder
+}
+
+export type ExerciseSubmissionCreateNestedManyWithoutUserInput = {
+  create?: Prisma.XOR<Prisma.ExerciseSubmissionCreateWithoutUserInput, Prisma.ExerciseSubmissionUncheckedCreateWithoutUserInput> | Prisma.ExerciseSubmissionCreateWithoutUserInput[] | Prisma.ExerciseSubmissionUncheckedCreateWithoutUserInput[]
+  connectOrCreate?: Prisma.ExerciseSubmissionCreateOrConnectWithoutUserInput | Prisma.ExerciseSubmissionCreateOrConnectWithoutUserInput[]
+  createMany?: Prisma.ExerciseSubmissionCreateManyUserInputEnvelope
+  connect?: Prisma.ExerciseSubmissionWhereUniqueInput | Prisma.ExerciseSubmissionWhereUniqueInput[]
+}
+
+export type ExerciseSubmissionUncheckedCreateNestedManyWithoutUserInput = {
+  create?: Prisma.XOR<Prisma.ExerciseSubmissionCreateWithoutUserInput, Prisma.ExerciseSubmissionUncheckedCreateWithoutUserInput> | Prisma.ExerciseSubmissionCreateWithoutUserInput[] | Prisma.ExerciseSubmissionUncheckedCreateWithoutUserInput[]
+  connectOrCreate?: Prisma.ExerciseSubmissionCreateOrConnectWithoutUserInput | Prisma.ExerciseSubmissionCreateOrConnectWithoutUserInput[]
+  createMany?: Prisma.ExerciseSubmissionCreateManyUserInputEnvelope
+  connect?: Prisma.ExerciseSubmissionWhereUniqueInput | Prisma.ExerciseSubmissionWhereUniqueInput[]
+}
+
+export type ExerciseSubmissionUpdateManyWithoutUserNestedInput = {
+  create?: Prisma.XOR<Prisma.ExerciseSubmissionCreateWithoutUserInput, Prisma.ExerciseSubmissionUncheckedCreateWithoutUserInput> | Prisma.ExerciseSubmissionCreateWithoutUserInput[] | Prisma.ExerciseSubmissionUncheckedCreateWithoutUserInput[]
+  connectOrCreate?: Prisma.ExerciseSubmissionCreateOrConnectWithoutUserInput | Prisma.ExerciseSubmissionCreateOrConnectWithoutUserInput[]
+  upsert?: Prisma.ExerciseSubmissionUpsertWithWhereUniqueWithoutUserInput | Prisma.ExerciseSubmissionUpsertWithWhereUniqueWithoutUserInput[]
+  createMany?: Prisma.ExerciseSubmissionCreateManyUserInputEnvelope
+  set?: Prisma.ExerciseSubmissionWhereUniqueInput | Prisma.ExerciseSubmissionWhereUniqueInput[]
+  disconnect?: Prisma.ExerciseSubmissionWhereUniqueInput | Prisma.ExerciseSubmissionWhereUniqueInput[]
+  delete?: Prisma.ExerciseSubmissionWhereUniqueInput | Prisma.ExerciseSubmissionWhereUniqueInput[]
+  connect?: Prisma.ExerciseSubmissionWhereUniqueInput | Prisma.ExerciseSubmissionWhereUniqueInput[]
+  update?: Prisma.ExerciseSubmissionUpdateWithWhereUniqueWithoutUserInput | Prisma.ExerciseSubmissionUpdateWithWhereUniqueWithoutUserInput[]
+  updateMany?: Prisma.ExerciseSubmissionUpdateManyWithWhereWithoutUserInput | Prisma.ExerciseSubmissionUpdateManyWithWhereWithoutUserInput[]
+  deleteMany?: Prisma.ExerciseSubmissionScalarWhereInput | Prisma.ExerciseSubmissionScalarWhereInput[]
+}
+
+export type ExerciseSubmissionUncheckedUpdateManyWithoutUserNestedInput = {
+  create?: Prisma.XOR<Prisma.ExerciseSubmissionCreateWithoutUserInput, Prisma.ExerciseSubmissionUncheckedCreateWithoutUserInput> | Prisma.ExerciseSubmissionCreateWithoutUserInput[] | Prisma.ExerciseSubmissionUncheckedCreateWithoutUserInput[]
+  connectOrCreate?: Prisma.ExerciseSubmissionCreateOrConnectWithoutUserInput | Prisma.ExerciseSubmissionCreateOrConnectWithoutUserInput[]
+  upsert?: Prisma.ExerciseSubmissionUpsertWithWhereUniqueWithoutUserInput | Prisma.ExerciseSubmissionUpsertWithWhereUniqueWithoutUserInput[]
+  createMany?: Prisma.ExerciseSubmissionCreateManyUserInputEnvelope
+  set?: Prisma.ExerciseSubmissionWhereUniqueInput | Prisma.ExerciseSubmissionWhereUniqueInput[]
+  disconnect?: Prisma.ExerciseSubmissionWhereUniqueInput | Prisma.ExerciseSubmissionWhereUniqueInput[]
+  delete?: Prisma.ExerciseSubmissionWhereUniqueInput | Prisma.ExerciseSubmissionWhereUniqueInput[]
+  connect?: Prisma.ExerciseSubmissionWhereUniqueInput | Prisma.ExerciseSubmissionWhereUniqueInput[]
+  update?: Prisma.ExerciseSubmissionUpdateWithWhereUniqueWithoutUserInput | Prisma.ExerciseSubmissionUpdateWithWhereUniqueWithoutUserInput[]
+  updateMany?: Prisma.ExerciseSubmissionUpdateManyWithWhereWithoutUserInput | Prisma.ExerciseSubmissionUpdateManyWithWhereWithoutUserInput[]
+  deleteMany?: Prisma.ExerciseSubmissionScalarWhereInput | Prisma.ExerciseSubmissionScalarWhereInput[]
+}
+
+export type ExerciseSubmissionCreateNestedManyWithoutExerciseInput = {
+  create?: Prisma.XOR<Prisma.ExerciseSubmissionCreateWithoutExerciseInput, Prisma.ExerciseSubmissionUncheckedCreateWithoutExerciseInput> | Prisma.ExerciseSubmissionCreateWithoutExerciseInput[] | Prisma.ExerciseSubmissionUncheckedCreateWithoutExerciseInput[]
+  connectOrCreate?: Prisma.ExerciseSubmissionCreateOrConnectWithoutExerciseInput | Prisma.ExerciseSubmissionCreateOrConnectWithoutExerciseInput[]
+  createMany?: Prisma.ExerciseSubmissionCreateManyExerciseInputEnvelope
+  connect?: Prisma.ExerciseSubmissionWhereUniqueInput | Prisma.ExerciseSubmissionWhereUniqueInput[]
+}
+
+export type ExerciseSubmissionUncheckedCreateNestedManyWithoutExerciseInput = {
+  create?: Prisma.XOR<Prisma.ExerciseSubmissionCreateWithoutExerciseInput, Prisma.ExerciseSubmissionUncheckedCreateWithoutExerciseInput> | Prisma.ExerciseSubmissionCreateWithoutExerciseInput[] | Prisma.ExerciseSubmissionUncheckedCreateWithoutExerciseInput[]
+  connectOrCreate?: Prisma.ExerciseSubmissionCreateOrConnectWithoutExerciseInput | Prisma.ExerciseSubmissionCreateOrConnectWithoutExerciseInput[]
+  createMany?: Prisma.ExerciseSubmissionCreateManyExerciseInputEnvelope
+  connect?: Prisma.ExerciseSubmissionWhereUniqueInput | Prisma.ExerciseSubmissionWhereUniqueInput[]
+}
+
+export type ExerciseSubmissionUpdateManyWithoutExerciseNestedInput = {
+  create?: Prisma.XOR<Prisma.ExerciseSubmissionCreateWithoutExerciseInput, Prisma.ExerciseSubmissionUncheckedCreateWithoutExerciseInput> | Prisma.ExerciseSubmissionCreateWithoutExerciseInput[] | Prisma.ExerciseSubmissionUncheckedCreateWithoutExerciseInput[]
+  connectOrCreate?: Prisma.ExerciseSubmissionCreateOrConnectWithoutExerciseInput | Prisma.ExerciseSubmissionCreateOrConnectWithoutExerciseInput[]
+  upsert?: Prisma.ExerciseSubmissionUpsertWithWhereUniqueWithoutExerciseInput | Prisma.ExerciseSubmissionUpsertWithWhereUniqueWithoutExerciseInput[]
+  createMany?: Prisma.ExerciseSubmissionCreateManyExerciseInputEnvelope
+  set?: Prisma.ExerciseSubmissionWhereUniqueInput | Prisma.ExerciseSubmissionWhereUniqueInput[]
+  disconnect?: Prisma.ExerciseSubmissionWhereUniqueInput | Prisma.ExerciseSubmissionWhereUniqueInput[]
+  delete?: Prisma.ExerciseSubmissionWhereUniqueInput | Prisma.ExerciseSubmissionWhereUniqueInput[]
+  connect?: Prisma.ExerciseSubmissionWhereUniqueInput | Prisma.ExerciseSubmissionWhereUniqueInput[]
+  update?: Prisma.ExerciseSubmissionUpdateWithWhereUniqueWithoutExerciseInput | Prisma.ExerciseSubmissionUpdateWithWhereUniqueWithoutExerciseInput[]
+  updateMany?: Prisma.ExerciseSubmissionUpdateManyWithWhereWithoutExerciseInput | Prisma.ExerciseSubmissionUpdateManyWithWhereWithoutExerciseInput[]
+  deleteMany?: Prisma.ExerciseSubmissionScalarWhereInput | Prisma.ExerciseSubmissionScalarWhereInput[]
+}
+
+export type ExerciseSubmissionUncheckedUpdateManyWithoutExerciseNestedInput = {
+  create?: Prisma.XOR<Prisma.ExerciseSubmissionCreateWithoutExerciseInput, Prisma.ExerciseSubmissionUncheckedCreateWithoutExerciseInput> | Prisma.ExerciseSubmissionCreateWithoutExerciseInput[] | Prisma.ExerciseSubmissionUncheckedCreateWithoutExerciseInput[]
+  connectOrCreate?: Prisma.ExerciseSubmissionCreateOrConnectWithoutExerciseInput | Prisma.ExerciseSubmissionCreateOrConnectWithoutExerciseInput[]
+  upsert?: Prisma.ExerciseSubmissionUpsertWithWhereUniqueWithoutExerciseInput | Prisma.ExerciseSubmissionUpsertWithWhereUniqueWithoutExerciseInput[]
+  createMany?: Prisma.ExerciseSubmissionCreateManyExerciseInputEnvelope
+  set?: Prisma.ExerciseSubmissionWhereUniqueInput | Prisma.ExerciseSubmissionWhereUniqueInput[]
+  disconnect?: Prisma.ExerciseSubmissionWhereUniqueInput | Prisma.ExerciseSubmissionWhereUniqueInput[]
+  delete?: Prisma.ExerciseSubmissionWhereUniqueInput | Prisma.ExerciseSubmissionWhereUniqueInput[]
+  connect?: Prisma.ExerciseSubmissionWhereUniqueInput | Prisma.ExerciseSubmissionWhereUniqueInput[]
+  update?: Prisma.ExerciseSubmissionUpdateWithWhereUniqueWithoutExerciseInput | Prisma.ExerciseSubmissionUpdateWithWhereUniqueWithoutExerciseInput[]
+  updateMany?: Prisma.ExerciseSubmissionUpdateManyWithWhereWithoutExerciseInput | Prisma.ExerciseSubmissionUpdateManyWithWhereWithoutExerciseInput[]
+  deleteMany?: Prisma.ExerciseSubmissionScalarWhereInput | Prisma.ExerciseSubmissionScalarWhereInput[]
+}
+
+export type ExerciseSubmissionCreateWithoutUserInput = {
+  submission_id?: string
+  answer_text: string
+  submitted_at?: Date | string
+  exercise: Prisma.ExerciseCreateNestedOneWithoutSubmissionsInput
+}
+
+export type ExerciseSubmissionUncheckedCreateWithoutUserInput = {
+  submission_id?: string
+  exercise_id: string
+  answer_text: string
+  submitted_at?: Date | string
+}
+
+export type ExerciseSubmissionCreateOrConnectWithoutUserInput = {
+  where: Prisma.ExerciseSubmissionWhereUniqueInput
+  create: Prisma.XOR<Prisma.ExerciseSubmissionCreateWithoutUserInput, Prisma.ExerciseSubmissionUncheckedCreateWithoutUserInput>
+}
+
+export type ExerciseSubmissionCreateManyUserInputEnvelope = {
+  data: Prisma.ExerciseSubmissionCreateManyUserInput | Prisma.ExerciseSubmissionCreateManyUserInput[]
+  skipDuplicates?: boolean
+}
+
+export type ExerciseSubmissionUpsertWithWhereUniqueWithoutUserInput = {
+  where: Prisma.ExerciseSubmissionWhereUniqueInput
+  update: Prisma.XOR<Prisma.ExerciseSubmissionUpdateWithoutUserInput, Prisma.ExerciseSubmissionUncheckedUpdateWithoutUserInput>
+  create: Prisma.XOR<Prisma.ExerciseSubmissionCreateWithoutUserInput, Prisma.ExerciseSubmissionUncheckedCreateWithoutUserInput>
+}
+
+export type ExerciseSubmissionUpdateWithWhereUniqueWithoutUserInput = {
+  where: Prisma.ExerciseSubmissionWhereUniqueInput
+  data: Prisma.XOR<Prisma.ExerciseSubmissionUpdateWithoutUserInput, Prisma.ExerciseSubmissionUncheckedUpdateWithoutUserInput>
+}
+
+export type ExerciseSubmissionUpdateManyWithWhereWithoutUserInput = {
+  where: Prisma.ExerciseSubmissionScalarWhereInput
+  data: Prisma.XOR<Prisma.ExerciseSubmissionUpdateManyMutationInput, Prisma.ExerciseSubmissionUncheckedUpdateManyWithoutUserInput>
+}
+
+export type ExerciseSubmissionScalarWhereInput = {
+  AND?: Prisma.ExerciseSubmissionScalarWhereInput | Prisma.ExerciseSubmissionScalarWhereInput[]
+  OR?: Prisma.ExerciseSubmissionScalarWhereInput[]
+  NOT?: Prisma.ExerciseSubmissionScalarWhereInput | Prisma.ExerciseSubmissionScalarWhereInput[]
+  submission_id?: Prisma.StringFilter<"ExerciseSubmission"> | string
+  exercise_id?: Prisma.StringFilter<"ExerciseSubmission"> | string
+  user_id?: Prisma.StringFilter<"ExerciseSubmission"> | string
+  answer_text?: Prisma.StringFilter<"ExerciseSubmission"> | string
+  submitted_at?: Prisma.DateTimeFilter<"ExerciseSubmission"> | Date | string
+}
+
+export type ExerciseSubmissionCreateWithoutExerciseInput = {
+  submission_id?: string
+  answer_text: string
+  submitted_at?: Date | string
+  user: Prisma.UserCreateNestedOneWithoutExerciseSubmissionsInput
+}
+
+export type ExerciseSubmissionUncheckedCreateWithoutExerciseInput = {
+  submission_id?: string
+  user_id: string
+  answer_text: string
+  submitted_at?: Date | string
+}
+
+export type ExerciseSubmissionCreateOrConnectWithoutExerciseInput = {
+  where: Prisma.ExerciseSubmissionWhereUniqueInput
+  create: Prisma.XOR<Prisma.ExerciseSubmissionCreateWithoutExerciseInput, Prisma.ExerciseSubmissionUncheckedCreateWithoutExerciseInput>
+}
+
+export type ExerciseSubmissionCreateManyExerciseInputEnvelope = {
+  data: Prisma.ExerciseSubmissionCreateManyExerciseInput | Prisma.ExerciseSubmissionCreateManyExerciseInput[]
+  skipDuplicates?: boolean
+}
+
+export type ExerciseSubmissionUpsertWithWhereUniqueWithoutExerciseInput = {
+  where: Prisma.ExerciseSubmissionWhereUniqueInput
+  update: Prisma.XOR<Prisma.ExerciseSubmissionUpdateWithoutExerciseInput, Prisma.ExerciseSubmissionUncheckedUpdateWithoutExerciseInput>
+  create: Prisma.XOR<Prisma.ExerciseSubmissionCreateWithoutExerciseInput, Prisma.ExerciseSubmissionUncheckedCreateWithoutExerciseInput>
+}
+
+export type ExerciseSubmissionUpdateWithWhereUniqueWithoutExerciseInput = {
+  where: Prisma.ExerciseSubmissionWhereUniqueInput
+  data: Prisma.XOR<Prisma.ExerciseSubmissionUpdateWithoutExerciseInput, Prisma.ExerciseSubmissionUncheckedUpdateWithoutExerciseInput>
+}
+
+export type ExerciseSubmissionUpdateManyWithWhereWithoutExerciseInput = {
+  where: Prisma.ExerciseSubmissionScalarWhereInput
+  data: Prisma.XOR<Prisma.ExerciseSubmissionUpdateManyMutationInput, Prisma.ExerciseSubmissionUncheckedUpdateManyWithoutExerciseInput>
+}
+
+export type ExerciseSubmissionCreateManyUserInput = {
+  submission_id?: string
+  exercise_id: string
+  answer_text: string
+  submitted_at?: Date | string
+}
+
+export type ExerciseSubmissionUpdateWithoutUserInput = {
+  submission_id?: Prisma.StringFieldUpdateOperationsInput | string
+  answer_text?: Prisma.StringFieldUpdateOperationsInput | string
+  submitted_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  exercise?: Prisma.ExerciseUpdateOneRequiredWithoutSubmissionsNestedInput
+}
+
+export type ExerciseSubmissionUncheckedUpdateWithoutUserInput = {
+  submission_id?: Prisma.StringFieldUpdateOperationsInput | string
+  exercise_id?: Prisma.StringFieldUpdateOperationsInput | string
+  answer_text?: Prisma.StringFieldUpdateOperationsInput | string
+  submitted_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type ExerciseSubmissionUncheckedUpdateManyWithoutUserInput = {
+  submission_id?: Prisma.StringFieldUpdateOperationsInput | string
+  exercise_id?: Prisma.StringFieldUpdateOperationsInput | string
+  answer_text?: Prisma.StringFieldUpdateOperationsInput | string
+  submitted_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type ExerciseSubmissionCreateManyExerciseInput = {
+  submission_id?: string
+  user_id: string
+  answer_text: string
+  submitted_at?: Date | string
+}
+
+export type ExerciseSubmissionUpdateWithoutExerciseInput = {
+  submission_id?: Prisma.StringFieldUpdateOperationsInput | string
+  answer_text?: Prisma.StringFieldUpdateOperationsInput | string
+  submitted_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  user?: Prisma.UserUpdateOneRequiredWithoutExerciseSubmissionsNestedInput
+}
+
+export type ExerciseSubmissionUncheckedUpdateWithoutExerciseInput = {
+  submission_id?: Prisma.StringFieldUpdateOperationsInput | string
+  user_id?: Prisma.StringFieldUpdateOperationsInput | string
+  answer_text?: Prisma.StringFieldUpdateOperationsInput | string
+  submitted_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+export type ExerciseSubmissionUncheckedUpdateManyWithoutExerciseInput = {
+  submission_id?: Prisma.StringFieldUpdateOperationsInput | string
+  user_id?: Prisma.StringFieldUpdateOperationsInput | string
+  answer_text?: Prisma.StringFieldUpdateOperationsInput | string
+  submitted_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+}
+
+
+
+export type ExerciseSubmissionSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
+  submission_id?: boolean
+  exercise_id?: boolean
+  user_id?: boolean
+  answer_text?: boolean
+  submitted_at?: boolean
+  exercise?: boolean | Prisma.ExerciseDefaultArgs<ExtArgs>
+  user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+}, ExtArgs["result"]["exerciseSubmission"]>
+
+
+
+export type ExerciseSubmissionSelectScalar = {
+  submission_id?: boolean
+  exercise_id?: boolean
+  user_id?: boolean
+  answer_text?: boolean
+  submitted_at?: boolean
+}
+
+export type ExerciseSubmissionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"submission_id" | "exercise_id" | "user_id" | "answer_text" | "submitted_at", ExtArgs["result"]["exerciseSubmission"]>
+export type ExerciseSubmissionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  exercise?: boolean | Prisma.ExerciseDefaultArgs<ExtArgs>
+  user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+}
+
+export type $ExerciseSubmissionPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  name: "ExerciseSubmission"
+  objects: {
+    exercise: Prisma.$ExercisePayload<ExtArgs>
+    user: Prisma.$UserPayload<ExtArgs>
+  }
+  scalars: runtime.Types.Extensions.GetPayloadResult<{
+    submission_id: string
+    exercise_id: string
+    user_id: string
+    answer_text: string
+    submitted_at: Date
+  }, ExtArgs["result"]["exerciseSubmission"]>
+  composites: {}
+}
+
+export type ExerciseSubmissionGetPayload<S extends boolean | null | undefined | ExerciseSubmissionDefaultArgs> = runtime.Types.Result.GetResult<Prisma.$ExerciseSubmissionPayload, S>
+
+export type ExerciseSubmissionCountArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> =
+  Omit<ExerciseSubmissionFindManyArgs, 'select' | 'include' | 'distinct' | 'omit'> & {
+    select?: ExerciseSubmissionCountAggregateInputType | true
+  }
+
+export interface ExerciseSubmissionDelegate<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> {
+  [K: symbol]: { types: Prisma.TypeMap<ExtArgs>['model']['ExerciseSubmission'], meta: { name: 'ExerciseSubmission' } }
+  /**
+   * Find zero or one ExerciseSubmission that matches the filter.
+   * @param {ExerciseSubmissionFindUniqueArgs} args - Arguments to find a ExerciseSubmission
+   * @example
+   * // Get one ExerciseSubmission
+   * const exerciseSubmission = await prisma.exerciseSubmission.findUnique({
+   *   where: {
+   *     // ... provide filter here
+   *   }
+   * })
+   */
+  findUnique<T extends ExerciseSubmissionFindUniqueArgs>(args: Prisma.SelectSubset<T, ExerciseSubmissionFindUniqueArgs<ExtArgs>>): Prisma.Prisma__ExerciseSubmissionClient<runtime.Types.Result.GetResult<Prisma.$ExerciseSubmissionPayload<ExtArgs>, T, "findUnique", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+  /**
+   * Find one ExerciseSubmission that matches the filter or throw an error with `error.code='P2025'`
+   * if no matches were found.
+   * @param {ExerciseSubmissionFindUniqueOrThrowArgs} args - Arguments to find a ExerciseSubmission
+   * @example
+   * // Get one ExerciseSubmission
+   * const exerciseSubmission = await prisma.exerciseSubmission.findUniqueOrThrow({
+   *   where: {
+   *     // ... provide filter here
+   *   }
+   * })
+   */
+  findUniqueOrThrow<T extends ExerciseSubmissionFindUniqueOrThrowArgs>(args: Prisma.SelectSubset<T, ExerciseSubmissionFindUniqueOrThrowArgs<ExtArgs>>): Prisma.Prisma__ExerciseSubmissionClient<runtime.Types.Result.GetResult<Prisma.$ExerciseSubmissionPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+  /**
+   * Find the first ExerciseSubmission that matches the filter.
+   * Note, that providing `undefined` is treated as the value not being there.
+   * Read more here: https://pris.ly/d/null-undefined
+   * @param {ExerciseSubmissionFindFirstArgs} args - Arguments to find a ExerciseSubmission
+   * @example
+   * // Get one ExerciseSubmission
+   * const exerciseSubmission = await prisma.exerciseSubmission.findFirst({
+   *   where: {
+   *     // ... provide filter here
+   *   }
+   * })
+   */
+  findFirst<T extends ExerciseSubmissionFindFirstArgs>(args?: Prisma.SelectSubset<T, ExerciseSubmissionFindFirstArgs<ExtArgs>>): Prisma.Prisma__ExerciseSubmissionClient<runtime.Types.Result.GetResult<Prisma.$ExerciseSubmissionPayload<ExtArgs>, T, "findFirst", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+
+  /**
+   * Find the first ExerciseSubmission that matches the filter or
+   * throw `PrismaKnownClientError` with `P2025` code if no matches were found.
+   * Note, that providing `undefined` is treated as the value not being there.
+   * Read more here: https://pris.ly/d/null-undefined
+   * @param {ExerciseSubmissionFindFirstOrThrowArgs} args - Arguments to find a ExerciseSubmission
+   * @example
+   * // Get one ExerciseSubmission
+   * const exerciseSubmission = await prisma.exerciseSubmission.findFirstOrThrow({
+   *   where: {
+   *     // ... provide filter here
+   *   }
+   * })
+   */
+  findFirstOrThrow<T extends ExerciseSubmissionFindFirstOrThrowArgs>(args?: Prisma.SelectSubset<T, ExerciseSubmissionFindFirstOrThrowArgs<ExtArgs>>): Prisma.Prisma__ExerciseSubmissionClient<runtime.Types.Result.GetResult<Prisma.$ExerciseSubmissionPayload<ExtArgs>, T, "findFirstOrThrow", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+  /**
+   * Find zero or more ExerciseSubmissions that matches the filter.
+   * Note, that providing `undefined` is treated as the value not being there.
+   * Read more here: https://pris.ly/d/null-undefined
+   * @param {ExerciseSubmissionFindManyArgs} args - Arguments to filter and select certain fields only.
+   * @example
+   * // Get all ExerciseSubmissions
+   * const exerciseSubmissions = await prisma.exerciseSubmission.findMany()
+   * 
+   * // Get first 10 ExerciseSubmissions
+   * const exerciseSubmissions = await prisma.exerciseSubmission.findMany({ take: 10 })
+   * 
+   * // Only select the `submission_id`
+   * const exerciseSubmissionWithSubmission_idOnly = await prisma.exerciseSubmission.findMany({ select: { submission_id: true } })
+   * 
+   */
+  findMany<T extends ExerciseSubmissionFindManyArgs>(args?: Prisma.SelectSubset<T, ExerciseSubmissionFindManyArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ExerciseSubmissionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions>>
+
+  /**
+   * Create a ExerciseSubmission.
+   * @param {ExerciseSubmissionCreateArgs} args - Arguments to create a ExerciseSubmission.
+   * @example
+   * // Create one ExerciseSubmission
+   * const ExerciseSubmission = await prisma.exerciseSubmission.create({
+   *   data: {
+   *     // ... data to create a ExerciseSubmission
+   *   }
+   * })
+   * 
+   */
+  create<T extends ExerciseSubmissionCreateArgs>(args: Prisma.SelectSubset<T, ExerciseSubmissionCreateArgs<ExtArgs>>): Prisma.Prisma__ExerciseSubmissionClient<runtime.Types.Result.GetResult<Prisma.$ExerciseSubmissionPayload<ExtArgs>, T, "create", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+  /**
+   * Create many ExerciseSubmissions.
+   * @param {ExerciseSubmissionCreateManyArgs} args - Arguments to create many ExerciseSubmissions.
+   * @example
+   * // Create many ExerciseSubmissions
+   * const exerciseSubmission = await prisma.exerciseSubmission.createMany({
+   *   data: [
+   *     // ... provide data here
+   *   ]
+   * })
+   *     
+   */
+  createMany<T extends ExerciseSubmissionCreateManyArgs>(args?: Prisma.SelectSubset<T, ExerciseSubmissionCreateManyArgs<ExtArgs>>): Prisma.PrismaPromise<Prisma.BatchPayload>
+
+  /**
+   * Delete a ExerciseSubmission.
+   * @param {ExerciseSubmissionDeleteArgs} args - Arguments to delete one ExerciseSubmission.
+   * @example
+   * // Delete one ExerciseSubmission
+   * const ExerciseSubmission = await prisma.exerciseSubmission.delete({
+   *   where: {
+   *     // ... filter to delete one ExerciseSubmission
+   *   }
+   * })
+   * 
+   */
+  delete<T extends ExerciseSubmissionDeleteArgs>(args: Prisma.SelectSubset<T, ExerciseSubmissionDeleteArgs<ExtArgs>>): Prisma.Prisma__ExerciseSubmissionClient<runtime.Types.Result.GetResult<Prisma.$ExerciseSubmissionPayload<ExtArgs>, T, "delete", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+  /**
+   * Update one ExerciseSubmission.
+   * @param {ExerciseSubmissionUpdateArgs} args - Arguments to update one ExerciseSubmission.
+   * @example
+   * // Update one ExerciseSubmission
+   * const exerciseSubmission = await prisma.exerciseSubmission.update({
+   *   where: {
+   *     // ... provide filter here
+   *   },
+   *   data: {
+   *     // ... provide data here
+   *   }
+   * })
+   * 
+   */
+  update<T extends ExerciseSubmissionUpdateArgs>(args: Prisma.SelectSubset<T, ExerciseSubmissionUpdateArgs<ExtArgs>>): Prisma.Prisma__ExerciseSubmissionClient<runtime.Types.Result.GetResult<Prisma.$ExerciseSubmissionPayload<ExtArgs>, T, "update", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+  /**
+   * Delete zero or more ExerciseSubmissions.
+   * @param {ExerciseSubmissionDeleteManyArgs} args - Arguments to filter ExerciseSubmissions to delete.
+   * @example
+   * // Delete a few ExerciseSubmissions
+   * const { count } = await prisma.exerciseSubmission.deleteMany({
+   *   where: {
+   *     // ... provide filter here
+   *   }
+   * })
+   * 
+   */
+  deleteMany<T extends ExerciseSubmissionDeleteManyArgs>(args?: Prisma.SelectSubset<T, ExerciseSubmissionDeleteManyArgs<ExtArgs>>): Prisma.PrismaPromise<Prisma.BatchPayload>
+
+  /**
+   * Update zero or more ExerciseSubmissions.
+   * Note, that providing `undefined` is treated as the value not being there.
+   * Read more here: https://pris.ly/d/null-undefined
+   * @param {ExerciseSubmissionUpdateManyArgs} args - Arguments to update one or more rows.
+   * @example
+   * // Update many ExerciseSubmissions
+   * const exerciseSubmission = await prisma.exerciseSubmission.updateMany({
+   *   where: {
+   *     // ... provide filter here
+   *   },
+   *   data: {
+   *     // ... provide data here
+   *   }
+   * })
+   * 
+   */
+  updateMany<T extends ExerciseSubmissionUpdateManyArgs>(args: Prisma.SelectSubset<T, ExerciseSubmissionUpdateManyArgs<ExtArgs>>): Prisma.PrismaPromise<Prisma.BatchPayload>
+
+  /**
+   * Create or update one ExerciseSubmission.
+   * @param {ExerciseSubmissionUpsertArgs} args - Arguments to update or create a ExerciseSubmission.
+   * @example
+   * // Update or create a ExerciseSubmission
+   * const exerciseSubmission = await prisma.exerciseSubmission.upsert({
+   *   create: {
+   *     // ... data to create a ExerciseSubmission
+   *   },
+   *   update: {
+   *     // ... in case it already exists, update
+   *   },
+   *   where: {
+   *     // ... the filter for the ExerciseSubmission we want to update
+   *   }
+   * })
+   */
+  upsert<T extends ExerciseSubmissionUpsertArgs>(args: Prisma.SelectSubset<T, ExerciseSubmissionUpsertArgs<ExtArgs>>): Prisma.Prisma__ExerciseSubmissionClient<runtime.Types.Result.GetResult<Prisma.$ExerciseSubmissionPayload<ExtArgs>, T, "upsert", GlobalOmitOptions>, never, ExtArgs, GlobalOmitOptions>
+
+
+  /**
+   * Count the number of ExerciseSubmissions.
+   * Note, that providing `undefined` is treated as the value not being there.
+   * Read more here: https://pris.ly/d/null-undefined
+   * @param {ExerciseSubmissionCountArgs} args - Arguments to filter ExerciseSubmissions to count.
+   * @example
+   * // Count the number of ExerciseSubmissions
+   * const count = await prisma.exerciseSubmission.count({
+   *   where: {
+   *     // ... the filter for the ExerciseSubmissions we want to count
+   *   }
+   * })
+  **/
+  count<T extends ExerciseSubmissionCountArgs>(
+    args?: Prisma.Subset<T, ExerciseSubmissionCountArgs>,
+  ): Prisma.PrismaPromise<
+    T extends runtime.Types.Utils.Record<'select', any>
+      ? T['select'] extends true
+        ? number
+        : Prisma.GetScalarType<T['select'], ExerciseSubmissionCountAggregateOutputType>
+      : number
+  >
+
+  /**
+   * Allows you to perform aggregations operations on a ExerciseSubmission.
+   * Note, that providing `undefined` is treated as the value not being there.
+   * Read more here: https://pris.ly/d/null-undefined
+   * @param {ExerciseSubmissionAggregateArgs} args - Select which aggregations you would like to apply and on what fields.
+   * @example
+   * // Ordered by age ascending
+   * // Where email contains prisma.io
+   * // Limited to the 10 users
+   * const aggregations = await prisma.user.aggregate({
+   *   _avg: {
+   *     age: true,
+   *   },
+   *   where: {
+   *     email: {
+   *       contains: "prisma.io",
+   *     },
+   *   },
+   *   orderBy: {
+   *     age: "asc",
+   *   },
+   *   take: 10,
+   * })
+  **/
+  aggregate<T extends ExerciseSubmissionAggregateArgs>(args: Prisma.Subset<T, ExerciseSubmissionAggregateArgs>): Prisma.PrismaPromise<GetExerciseSubmissionAggregateType<T>>
+
+  /**
+   * Group by ExerciseSubmission.
+   * Note, that providing `undefined` is treated as the value not being there.
+   * Read more here: https://pris.ly/d/null-undefined
+   * @param {ExerciseSubmissionGroupByArgs} args - Group by arguments.
+   * @example
+   * // Group by city, order by createdAt, get count
+   * const result = await prisma.user.groupBy({
+   *   by: ['city', 'createdAt'],
+   *   orderBy: {
+   *     createdAt: true
+   *   },
+   *   _count: {
+   *     _all: true
+   *   },
+   * })
+   * 
+  **/
+  groupBy<
+    T extends ExerciseSubmissionGroupByArgs,
+    HasSelectOrTake extends Prisma.Or<
+      Prisma.Extends<'skip', Prisma.Keys<T>>,
+      Prisma.Extends<'take', Prisma.Keys<T>>
+    >,
+    OrderByArg extends Prisma.True extends HasSelectOrTake
+      ? { orderBy: ExerciseSubmissionGroupByArgs['orderBy'] }
+      : { orderBy?: ExerciseSubmissionGroupByArgs['orderBy'] },
+    OrderFields extends Prisma.ExcludeUnderscoreKeys<Prisma.Keys<Prisma.MaybeTupleToUnion<T['orderBy']>>>,
+    ByFields extends Prisma.MaybeTupleToUnion<T['by']>,
+    ByValid extends Prisma.Has<ByFields, OrderFields>,
+    HavingFields extends Prisma.GetHavingFields<T['having']>,
+    HavingValid extends Prisma.Has<ByFields, HavingFields>,
+    ByEmpty extends T['by'] extends never[] ? Prisma.True : Prisma.False,
+    InputErrors extends ByEmpty extends Prisma.True
+    ? `Error: "by" must not be empty.`
+    : HavingValid extends Prisma.False
+    ? {
+        [P in HavingFields]: P extends ByFields
+          ? never
+          : P extends string
+          ? `Error: Field "${P}" used in "having" needs to be provided in "by".`
+          : [
+              Error,
+              'Field ',
+              P,
+              ` in "having" needs to be provided in "by"`,
+            ]
+      }[HavingFields]
+    : 'take' extends Prisma.Keys<T>
+    ? 'orderBy' extends Prisma.Keys<T>
+      ? ByValid extends Prisma.True
+        ? {}
+        : {
+            [P in OrderFields]: P extends ByFields
+              ? never
+              : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+          }[OrderFields]
+      : 'Error: If you provide "take", you also need to provide "orderBy"'
+    : 'skip' extends Prisma.Keys<T>
+    ? 'orderBy' extends Prisma.Keys<T>
+      ? ByValid extends Prisma.True
+        ? {}
+        : {
+            [P in OrderFields]: P extends ByFields
+              ? never
+              : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+          }[OrderFields]
+      : 'Error: If you provide "skip", you also need to provide "orderBy"'
+    : ByValid extends Prisma.True
+    ? {}
+    : {
+        [P in OrderFields]: P extends ByFields
+          ? never
+          : `Error: Field "${P}" in "orderBy" needs to be provided in "by"`
+      }[OrderFields]
+  >(args: Prisma.SubsetIntersection<T, ExerciseSubmissionGroupByArgs, OrderByArg> & InputErrors): {} extends InputErrors ? GetExerciseSubmissionGroupByPayload<T> : Prisma.PrismaPromise<InputErrors>
+/**
+ * Fields of the ExerciseSubmission model
+ */
+readonly fields: ExerciseSubmissionFieldRefs;
+}
+
+/**
+ * The delegate class that acts as a "Promise-like" for ExerciseSubmission.
+ * Why is this prefixed with `Prisma__`?
+ * Because we want to prevent naming conflicts as mentioned in
+ * https://github.com/prisma/prisma-client-js/issues/707
+ */
+export interface Prisma__ExerciseSubmissionClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
+  readonly [Symbol.toStringTag]: "PrismaPromise"
+  exercise<T extends Prisma.ExerciseDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.ExerciseDefaultArgs<ExtArgs>>): Prisma.Prisma__ExerciseClient<runtime.Types.Result.GetResult<Prisma.$ExercisePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  user<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  /**
+   * Attaches callbacks for the resolution and/or rejection of the Promise.
+   * @param onfulfilled The callback to execute when the Promise is resolved.
+   * @param onrejected The callback to execute when the Promise is rejected.
+   * @returns A Promise for the completion of which ever callback is executed.
+   */
+  then<TResult1 = T, TResult2 = never>(onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | undefined | null, onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | undefined | null): runtime.Types.Utils.JsPromise<TResult1 | TResult2>
+  /**
+   * Attaches a callback for only the rejection of the Promise.
+   * @param onrejected The callback to execute when the Promise is rejected.
+   * @returns A Promise for the completion of the callback.
+   */
+  catch<TResult = never>(onrejected?: ((reason: any) => TResult | PromiseLike<TResult>) | undefined | null): runtime.Types.Utils.JsPromise<T | TResult>
+  /**
+   * Attaches a callback that is invoked when the Promise is settled (fulfilled or rejected). The
+   * resolved value cannot be modified from the callback.
+   * @param onfinally The callback to execute when the Promise is settled (fulfilled or rejected).
+   * @returns A Promise for the completion of the callback.
+   */
+  finally(onfinally?: (() => void) | undefined | null): runtime.Types.Utils.JsPromise<T>
+}
+
+
+
+
+/**
+ * Fields of the ExerciseSubmission model
+ */
+export interface ExerciseSubmissionFieldRefs {
+  readonly submission_id: Prisma.FieldRef<"ExerciseSubmission", 'String'>
+  readonly exercise_id: Prisma.FieldRef<"ExerciseSubmission", 'String'>
+  readonly user_id: Prisma.FieldRef<"ExerciseSubmission", 'String'>
+  readonly answer_text: Prisma.FieldRef<"ExerciseSubmission", 'String'>
+  readonly submitted_at: Prisma.FieldRef<"ExerciseSubmission", 'DateTime'>
+}
+    
+
+// Custom InputTypes
+/**
+ * ExerciseSubmission findUnique
+ */
+export type ExerciseSubmissionFindUniqueArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ExerciseSubmission
+   */
+  select?: Prisma.ExerciseSubmissionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ExerciseSubmission
+   */
+  omit?: Prisma.ExerciseSubmissionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ExerciseSubmissionInclude<ExtArgs> | null
+  /**
+   * Filter, which ExerciseSubmission to fetch.
+   */
+  where: Prisma.ExerciseSubmissionWhereUniqueInput
+}
+
+/**
+ * ExerciseSubmission findUniqueOrThrow
+ */
+export type ExerciseSubmissionFindUniqueOrThrowArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ExerciseSubmission
+   */
+  select?: Prisma.ExerciseSubmissionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ExerciseSubmission
+   */
+  omit?: Prisma.ExerciseSubmissionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ExerciseSubmissionInclude<ExtArgs> | null
+  /**
+   * Filter, which ExerciseSubmission to fetch.
+   */
+  where: Prisma.ExerciseSubmissionWhereUniqueInput
+}
+
+/**
+ * ExerciseSubmission findFirst
+ */
+export type ExerciseSubmissionFindFirstArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ExerciseSubmission
+   */
+  select?: Prisma.ExerciseSubmissionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ExerciseSubmission
+   */
+  omit?: Prisma.ExerciseSubmissionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ExerciseSubmissionInclude<ExtArgs> | null
+  /**
+   * Filter, which ExerciseSubmission to fetch.
+   */
+  where?: Prisma.ExerciseSubmissionWhereInput
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+   * 
+   * Determine the order of ExerciseSubmissions to fetch.
+   */
+  orderBy?: Prisma.ExerciseSubmissionOrderByWithRelationInput | Prisma.ExerciseSubmissionOrderByWithRelationInput[]
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+   * 
+   * Sets the position for searching for ExerciseSubmissions.
+   */
+  cursor?: Prisma.ExerciseSubmissionWhereUniqueInput
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+   * 
+   * Take `±n` ExerciseSubmissions from the position of the cursor.
+   */
+  take?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+   * 
+   * Skip the first `n` ExerciseSubmissions.
+   */
+  skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of ExerciseSubmissions.
+   */
+  distinct?: Prisma.ExerciseSubmissionScalarFieldEnum | Prisma.ExerciseSubmissionScalarFieldEnum[]
+}
+
+/**
+ * ExerciseSubmission findFirstOrThrow
+ */
+export type ExerciseSubmissionFindFirstOrThrowArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ExerciseSubmission
+   */
+  select?: Prisma.ExerciseSubmissionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ExerciseSubmission
+   */
+  omit?: Prisma.ExerciseSubmissionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ExerciseSubmissionInclude<ExtArgs> | null
+  /**
+   * Filter, which ExerciseSubmission to fetch.
+   */
+  where?: Prisma.ExerciseSubmissionWhereInput
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+   * 
+   * Determine the order of ExerciseSubmissions to fetch.
+   */
+  orderBy?: Prisma.ExerciseSubmissionOrderByWithRelationInput | Prisma.ExerciseSubmissionOrderByWithRelationInput[]
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+   * 
+   * Sets the position for searching for ExerciseSubmissions.
+   */
+  cursor?: Prisma.ExerciseSubmissionWhereUniqueInput
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+   * 
+   * Take `±n` ExerciseSubmissions from the position of the cursor.
+   */
+  take?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+   * 
+   * Skip the first `n` ExerciseSubmissions.
+   */
+  skip?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/distinct Distinct Docs}
+   * 
+   * Filter by unique combinations of ExerciseSubmissions.
+   */
+  distinct?: Prisma.ExerciseSubmissionScalarFieldEnum | Prisma.ExerciseSubmissionScalarFieldEnum[]
+}
+
+/**
+ * ExerciseSubmission findMany
+ */
+export type ExerciseSubmissionFindManyArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ExerciseSubmission
+   */
+  select?: Prisma.ExerciseSubmissionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ExerciseSubmission
+   */
+  omit?: Prisma.ExerciseSubmissionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ExerciseSubmissionInclude<ExtArgs> | null
+  /**
+   * Filter, which ExerciseSubmissions to fetch.
+   */
+  where?: Prisma.ExerciseSubmissionWhereInput
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/sorting Sorting Docs}
+   * 
+   * Determine the order of ExerciseSubmissions to fetch.
+   */
+  orderBy?: Prisma.ExerciseSubmissionOrderByWithRelationInput | Prisma.ExerciseSubmissionOrderByWithRelationInput[]
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination#cursor-based-pagination Cursor Docs}
+   * 
+   * Sets the position for listing ExerciseSubmissions.
+   */
+  cursor?: Prisma.ExerciseSubmissionWhereUniqueInput
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+   * 
+   * Take `±n` ExerciseSubmissions from the position of the cursor.
+   */
+  take?: number
+  /**
+   * {@link https://www.prisma.io/docs/concepts/components/prisma-client/pagination Pagination Docs}
+   * 
+   * Skip the first `n` ExerciseSubmissions.
+   */
+  skip?: number
+  distinct?: Prisma.ExerciseSubmissionScalarFieldEnum | Prisma.ExerciseSubmissionScalarFieldEnum[]
+}
+
+/**
+ * ExerciseSubmission create
+ */
+export type ExerciseSubmissionCreateArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ExerciseSubmission
+   */
+  select?: Prisma.ExerciseSubmissionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ExerciseSubmission
+   */
+  omit?: Prisma.ExerciseSubmissionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ExerciseSubmissionInclude<ExtArgs> | null
+  /**
+   * The data needed to create a ExerciseSubmission.
+   */
+  data: Prisma.XOR<Prisma.ExerciseSubmissionCreateInput, Prisma.ExerciseSubmissionUncheckedCreateInput>
+}
+
+/**
+ * ExerciseSubmission createMany
+ */
+export type ExerciseSubmissionCreateManyArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * The data used to create many ExerciseSubmissions.
+   */
+  data: Prisma.ExerciseSubmissionCreateManyInput | Prisma.ExerciseSubmissionCreateManyInput[]
+  skipDuplicates?: boolean
+}
+
+/**
+ * ExerciseSubmission update
+ */
+export type ExerciseSubmissionUpdateArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ExerciseSubmission
+   */
+  select?: Prisma.ExerciseSubmissionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ExerciseSubmission
+   */
+  omit?: Prisma.ExerciseSubmissionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ExerciseSubmissionInclude<ExtArgs> | null
+  /**
+   * The data needed to update a ExerciseSubmission.
+   */
+  data: Prisma.XOR<Prisma.ExerciseSubmissionUpdateInput, Prisma.ExerciseSubmissionUncheckedUpdateInput>
+  /**
+   * Choose, which ExerciseSubmission to update.
+   */
+  where: Prisma.ExerciseSubmissionWhereUniqueInput
+}
+
+/**
+ * ExerciseSubmission updateMany
+ */
+export type ExerciseSubmissionUpdateManyArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * The data used to update ExerciseSubmissions.
+   */
+  data: Prisma.XOR<Prisma.ExerciseSubmissionUpdateManyMutationInput, Prisma.ExerciseSubmissionUncheckedUpdateManyInput>
+  /**
+   * Filter which ExerciseSubmissions to update
+   */
+  where?: Prisma.ExerciseSubmissionWhereInput
+  /**
+   * Limit how many ExerciseSubmissions to update.
+   */
+  limit?: number
+}
+
+/**
+ * ExerciseSubmission upsert
+ */
+export type ExerciseSubmissionUpsertArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ExerciseSubmission
+   */
+  select?: Prisma.ExerciseSubmissionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ExerciseSubmission
+   */
+  omit?: Prisma.ExerciseSubmissionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ExerciseSubmissionInclude<ExtArgs> | null
+  /**
+   * The filter to search for the ExerciseSubmission to update in case it exists.
+   */
+  where: Prisma.ExerciseSubmissionWhereUniqueInput
+  /**
+   * In case the ExerciseSubmission found by the `where` argument doesn't exist, create a new ExerciseSubmission with this data.
+   */
+  create: Prisma.XOR<Prisma.ExerciseSubmissionCreateInput, Prisma.ExerciseSubmissionUncheckedCreateInput>
+  /**
+   * In case the ExerciseSubmission was found with the provided `where` argument, update it with this data.
+   */
+  update: Prisma.XOR<Prisma.ExerciseSubmissionUpdateInput, Prisma.ExerciseSubmissionUncheckedUpdateInput>
+}
+
+/**
+ * ExerciseSubmission delete
+ */
+export type ExerciseSubmissionDeleteArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ExerciseSubmission
+   */
+  select?: Prisma.ExerciseSubmissionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ExerciseSubmission
+   */
+  omit?: Prisma.ExerciseSubmissionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ExerciseSubmissionInclude<ExtArgs> | null
+  /**
+   * Filter which ExerciseSubmission to delete.
+   */
+  where: Prisma.ExerciseSubmissionWhereUniqueInput
+}
+
+/**
+ * ExerciseSubmission deleteMany
+ */
+export type ExerciseSubmissionDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Filter which ExerciseSubmissions to delete
+   */
+  where?: Prisma.ExerciseSubmissionWhereInput
+  /**
+   * Limit how many ExerciseSubmissions to delete.
+   */
+  limit?: number
+}
+
+/**
+ * ExerciseSubmission without action
+ */
+export type ExerciseSubmissionDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ExerciseSubmission
+   */
+  select?: Prisma.ExerciseSubmissionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ExerciseSubmission
+   */
+  omit?: Prisma.ExerciseSubmissionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ExerciseSubmissionInclude<ExtArgs> | null
 }
 
 ```
@@ -17092,6 +18743,7 @@ export type UserWhereInput = {
   learningEvents?: Prisma.LearningEventListRelationFilter
   roadmaps?: Prisma.RoadmapListRelationFilter
   progress?: Prisma.UserProgressListRelationFilter
+  exerciseSubmissions?: Prisma.ExerciseSubmissionListRelationFilter
 }
 
 export type UserOrderByWithRelationInput = {
@@ -17111,6 +18763,7 @@ export type UserOrderByWithRelationInput = {
   learningEvents?: Prisma.LearningEventOrderByRelationAggregateInput
   roadmaps?: Prisma.RoadmapOrderByRelationAggregateInput
   progress?: Prisma.UserProgressOrderByRelationAggregateInput
+  exerciseSubmissions?: Prisma.ExerciseSubmissionOrderByRelationAggregateInput
   _relevance?: Prisma.UserOrderByRelevanceInput
 }
 
@@ -17134,6 +18787,7 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   learningEvents?: Prisma.LearningEventListRelationFilter
   roadmaps?: Prisma.RoadmapListRelationFilter
   progress?: Prisma.UserProgressListRelationFilter
+  exerciseSubmissions?: Prisma.ExerciseSubmissionListRelationFilter
 }, "user_id" | "email">
 
 export type UserOrderByWithAggregationInput = {
@@ -17183,6 +18837,7 @@ export type UserCreateInput = {
   learningEvents?: Prisma.LearningEventCreateNestedManyWithoutUserInput
   roadmaps?: Prisma.RoadmapCreateNestedManyWithoutCreatorInput
   progress?: Prisma.UserProgressCreateNestedManyWithoutUserInput
+  exerciseSubmissions?: Prisma.ExerciseSubmissionCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateInput = {
@@ -17202,6 +18857,7 @@ export type UserUncheckedCreateInput = {
   learningEvents?: Prisma.LearningEventUncheckedCreateNestedManyWithoutUserInput
   roadmaps?: Prisma.RoadmapUncheckedCreateNestedManyWithoutCreatorInput
   progress?: Prisma.UserProgressUncheckedCreateNestedManyWithoutUserInput
+  exerciseSubmissions?: Prisma.ExerciseSubmissionUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserUpdateInput = {
@@ -17221,6 +18877,7 @@ export type UserUpdateInput = {
   learningEvents?: Prisma.LearningEventUpdateManyWithoutUserNestedInput
   roadmaps?: Prisma.RoadmapUpdateManyWithoutCreatorNestedInput
   progress?: Prisma.UserProgressUpdateManyWithoutUserNestedInput
+  exerciseSubmissions?: Prisma.ExerciseSubmissionUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateInput = {
@@ -17240,6 +18897,7 @@ export type UserUncheckedUpdateInput = {
   learningEvents?: Prisma.LearningEventUncheckedUpdateManyWithoutUserNestedInput
   roadmaps?: Prisma.RoadmapUncheckedUpdateManyWithoutCreatorNestedInput
   progress?: Prisma.UserProgressUncheckedUpdateManyWithoutUserNestedInput
+  exerciseSubmissions?: Prisma.ExerciseSubmissionUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateManyInput = {
@@ -17373,6 +19031,20 @@ export type UserUpdateOneRequiredWithoutProgressNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutProgressInput, Prisma.UserUpdateWithoutProgressInput>, Prisma.UserUncheckedUpdateWithoutProgressInput>
 }
 
+export type UserCreateNestedOneWithoutExerciseSubmissionsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutExerciseSubmissionsInput, Prisma.UserUncheckedCreateWithoutExerciseSubmissionsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutExerciseSubmissionsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneRequiredWithoutExerciseSubmissionsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutExerciseSubmissionsInput, Prisma.UserUncheckedCreateWithoutExerciseSubmissionsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutExerciseSubmissionsInput
+  upsert?: Prisma.UserUpsertWithoutExerciseSubmissionsInput
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutExerciseSubmissionsInput, Prisma.UserUpdateWithoutExerciseSubmissionsInput>, Prisma.UserUncheckedUpdateWithoutExerciseSubmissionsInput>
+}
+
 export type UserCreateNestedOneWithoutInterviewSessionsInput = {
   create?: Prisma.XOR<Prisma.UserCreateWithoutInterviewSessionsInput, Prisma.UserUncheckedCreateWithoutInterviewSessionsInput>
   connectOrCreate?: Prisma.UserCreateOrConnectWithoutInterviewSessionsInput
@@ -17459,6 +19131,7 @@ export type UserCreateWithoutRoadmapsInput = {
   interviewSessions?: Prisma.InterviewSessionCreateNestedManyWithoutUserInput
   learningEvents?: Prisma.LearningEventCreateNestedManyWithoutUserInput
   progress?: Prisma.UserProgressCreateNestedManyWithoutUserInput
+  exerciseSubmissions?: Prisma.ExerciseSubmissionCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutRoadmapsInput = {
@@ -17477,6 +19150,7 @@ export type UserUncheckedCreateWithoutRoadmapsInput = {
   interviewSessions?: Prisma.InterviewSessionUncheckedCreateNestedManyWithoutUserInput
   learningEvents?: Prisma.LearningEventUncheckedCreateNestedManyWithoutUserInput
   progress?: Prisma.UserProgressUncheckedCreateNestedManyWithoutUserInput
+  exerciseSubmissions?: Prisma.ExerciseSubmissionUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutRoadmapsInput = {
@@ -17511,6 +19185,7 @@ export type UserUpdateWithoutRoadmapsInput = {
   interviewSessions?: Prisma.InterviewSessionUpdateManyWithoutUserNestedInput
   learningEvents?: Prisma.LearningEventUpdateManyWithoutUserNestedInput
   progress?: Prisma.UserProgressUpdateManyWithoutUserNestedInput
+  exerciseSubmissions?: Prisma.ExerciseSubmissionUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutRoadmapsInput = {
@@ -17529,6 +19204,7 @@ export type UserUncheckedUpdateWithoutRoadmapsInput = {
   interviewSessions?: Prisma.InterviewSessionUncheckedUpdateManyWithoutUserNestedInput
   learningEvents?: Prisma.LearningEventUncheckedUpdateManyWithoutUserNestedInput
   progress?: Prisma.UserProgressUncheckedUpdateManyWithoutUserNestedInput
+  exerciseSubmissions?: Prisma.ExerciseSubmissionUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutProgressInput = {
@@ -17547,6 +19223,7 @@ export type UserCreateWithoutProgressInput = {
   interviewSessions?: Prisma.InterviewSessionCreateNestedManyWithoutUserInput
   learningEvents?: Prisma.LearningEventCreateNestedManyWithoutUserInput
   roadmaps?: Prisma.RoadmapCreateNestedManyWithoutCreatorInput
+  exerciseSubmissions?: Prisma.ExerciseSubmissionCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutProgressInput = {
@@ -17565,6 +19242,7 @@ export type UserUncheckedCreateWithoutProgressInput = {
   interviewSessions?: Prisma.InterviewSessionUncheckedCreateNestedManyWithoutUserInput
   learningEvents?: Prisma.LearningEventUncheckedCreateNestedManyWithoutUserInput
   roadmaps?: Prisma.RoadmapUncheckedCreateNestedManyWithoutCreatorInput
+  exerciseSubmissions?: Prisma.ExerciseSubmissionUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutProgressInput = {
@@ -17599,6 +19277,7 @@ export type UserUpdateWithoutProgressInput = {
   interviewSessions?: Prisma.InterviewSessionUpdateManyWithoutUserNestedInput
   learningEvents?: Prisma.LearningEventUpdateManyWithoutUserNestedInput
   roadmaps?: Prisma.RoadmapUpdateManyWithoutCreatorNestedInput
+  exerciseSubmissions?: Prisma.ExerciseSubmissionUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutProgressInput = {
@@ -17617,6 +19296,99 @@ export type UserUncheckedUpdateWithoutProgressInput = {
   interviewSessions?: Prisma.InterviewSessionUncheckedUpdateManyWithoutUserNestedInput
   learningEvents?: Prisma.LearningEventUncheckedUpdateManyWithoutUserNestedInput
   roadmaps?: Prisma.RoadmapUncheckedUpdateManyWithoutCreatorNestedInput
+  exerciseSubmissions?: Prisma.ExerciseSubmissionUncheckedUpdateManyWithoutUserNestedInput
+}
+
+export type UserCreateWithoutExerciseSubmissionsInput = {
+  user_id?: string
+  email: string
+  password_hash: string
+  full_name: string
+  current_level?: $Enums.Level
+  role?: $Enums.Role
+  avatar_url?: string | null
+  created_at?: Date | string
+  updated_at?: Date | string
+  aiNotes?: Prisma.AINoteCreateNestedManyWithoutUserInput
+  cvs?: Prisma.CVCreateNestedManyWithoutUserInput
+  certificates?: Prisma.CertificateCreateNestedManyWithoutUserInput
+  interviewSessions?: Prisma.InterviewSessionCreateNestedManyWithoutUserInput
+  learningEvents?: Prisma.LearningEventCreateNestedManyWithoutUserInput
+  roadmaps?: Prisma.RoadmapCreateNestedManyWithoutCreatorInput
+  progress?: Prisma.UserProgressCreateNestedManyWithoutUserInput
+}
+
+export type UserUncheckedCreateWithoutExerciseSubmissionsInput = {
+  user_id?: string
+  email: string
+  password_hash: string
+  full_name: string
+  current_level?: $Enums.Level
+  role?: $Enums.Role
+  avatar_url?: string | null
+  created_at?: Date | string
+  updated_at?: Date | string
+  aiNotes?: Prisma.AINoteUncheckedCreateNestedManyWithoutUserInput
+  cvs?: Prisma.CVUncheckedCreateNestedManyWithoutUserInput
+  certificates?: Prisma.CertificateUncheckedCreateNestedManyWithoutUserInput
+  interviewSessions?: Prisma.InterviewSessionUncheckedCreateNestedManyWithoutUserInput
+  learningEvents?: Prisma.LearningEventUncheckedCreateNestedManyWithoutUserInput
+  roadmaps?: Prisma.RoadmapUncheckedCreateNestedManyWithoutCreatorInput
+  progress?: Prisma.UserProgressUncheckedCreateNestedManyWithoutUserInput
+}
+
+export type UserCreateOrConnectWithoutExerciseSubmissionsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutExerciseSubmissionsInput, Prisma.UserUncheckedCreateWithoutExerciseSubmissionsInput>
+}
+
+export type UserUpsertWithoutExerciseSubmissionsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutExerciseSubmissionsInput, Prisma.UserUncheckedUpdateWithoutExerciseSubmissionsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutExerciseSubmissionsInput, Prisma.UserUncheckedCreateWithoutExerciseSubmissionsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutExerciseSubmissionsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutExerciseSubmissionsInput, Prisma.UserUncheckedUpdateWithoutExerciseSubmissionsInput>
+}
+
+export type UserUpdateWithoutExerciseSubmissionsInput = {
+  user_id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  password_hash?: Prisma.StringFieldUpdateOperationsInput | string
+  full_name?: Prisma.StringFieldUpdateOperationsInput | string
+  current_level?: Prisma.EnumLevelFieldUpdateOperationsInput | $Enums.Level
+  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  avatar_url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  created_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updated_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  aiNotes?: Prisma.AINoteUpdateManyWithoutUserNestedInput
+  cvs?: Prisma.CVUpdateManyWithoutUserNestedInput
+  certificates?: Prisma.CertificateUpdateManyWithoutUserNestedInput
+  interviewSessions?: Prisma.InterviewSessionUpdateManyWithoutUserNestedInput
+  learningEvents?: Prisma.LearningEventUpdateManyWithoutUserNestedInput
+  roadmaps?: Prisma.RoadmapUpdateManyWithoutCreatorNestedInput
+  progress?: Prisma.UserProgressUpdateManyWithoutUserNestedInput
+}
+
+export type UserUncheckedUpdateWithoutExerciseSubmissionsInput = {
+  user_id?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  password_hash?: Prisma.StringFieldUpdateOperationsInput | string
+  full_name?: Prisma.StringFieldUpdateOperationsInput | string
+  current_level?: Prisma.EnumLevelFieldUpdateOperationsInput | $Enums.Level
+  role?: Prisma.EnumRoleFieldUpdateOperationsInput | $Enums.Role
+  avatar_url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  created_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updated_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  aiNotes?: Prisma.AINoteUncheckedUpdateManyWithoutUserNestedInput
+  cvs?: Prisma.CVUncheckedUpdateManyWithoutUserNestedInput
+  certificates?: Prisma.CertificateUncheckedUpdateManyWithoutUserNestedInput
+  interviewSessions?: Prisma.InterviewSessionUncheckedUpdateManyWithoutUserNestedInput
+  learningEvents?: Prisma.LearningEventUncheckedUpdateManyWithoutUserNestedInput
+  roadmaps?: Prisma.RoadmapUncheckedUpdateManyWithoutCreatorNestedInput
+  progress?: Prisma.UserProgressUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutInterviewSessionsInput = {
@@ -17635,6 +19407,7 @@ export type UserCreateWithoutInterviewSessionsInput = {
   learningEvents?: Prisma.LearningEventCreateNestedManyWithoutUserInput
   roadmaps?: Prisma.RoadmapCreateNestedManyWithoutCreatorInput
   progress?: Prisma.UserProgressCreateNestedManyWithoutUserInput
+  exerciseSubmissions?: Prisma.ExerciseSubmissionCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutInterviewSessionsInput = {
@@ -17653,6 +19426,7 @@ export type UserUncheckedCreateWithoutInterviewSessionsInput = {
   learningEvents?: Prisma.LearningEventUncheckedCreateNestedManyWithoutUserInput
   roadmaps?: Prisma.RoadmapUncheckedCreateNestedManyWithoutCreatorInput
   progress?: Prisma.UserProgressUncheckedCreateNestedManyWithoutUserInput
+  exerciseSubmissions?: Prisma.ExerciseSubmissionUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutInterviewSessionsInput = {
@@ -17687,6 +19461,7 @@ export type UserUpdateWithoutInterviewSessionsInput = {
   learningEvents?: Prisma.LearningEventUpdateManyWithoutUserNestedInput
   roadmaps?: Prisma.RoadmapUpdateManyWithoutCreatorNestedInput
   progress?: Prisma.UserProgressUpdateManyWithoutUserNestedInput
+  exerciseSubmissions?: Prisma.ExerciseSubmissionUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutInterviewSessionsInput = {
@@ -17705,6 +19480,7 @@ export type UserUncheckedUpdateWithoutInterviewSessionsInput = {
   learningEvents?: Prisma.LearningEventUncheckedUpdateManyWithoutUserNestedInput
   roadmaps?: Prisma.RoadmapUncheckedUpdateManyWithoutCreatorNestedInput
   progress?: Prisma.UserProgressUncheckedUpdateManyWithoutUserNestedInput
+  exerciseSubmissions?: Prisma.ExerciseSubmissionUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutCvsInput = {
@@ -17723,6 +19499,7 @@ export type UserCreateWithoutCvsInput = {
   learningEvents?: Prisma.LearningEventCreateNestedManyWithoutUserInput
   roadmaps?: Prisma.RoadmapCreateNestedManyWithoutCreatorInput
   progress?: Prisma.UserProgressCreateNestedManyWithoutUserInput
+  exerciseSubmissions?: Prisma.ExerciseSubmissionCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutCvsInput = {
@@ -17741,6 +19518,7 @@ export type UserUncheckedCreateWithoutCvsInput = {
   learningEvents?: Prisma.LearningEventUncheckedCreateNestedManyWithoutUserInput
   roadmaps?: Prisma.RoadmapUncheckedCreateNestedManyWithoutCreatorInput
   progress?: Prisma.UserProgressUncheckedCreateNestedManyWithoutUserInput
+  exerciseSubmissions?: Prisma.ExerciseSubmissionUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutCvsInput = {
@@ -17775,6 +19553,7 @@ export type UserUpdateWithoutCvsInput = {
   learningEvents?: Prisma.LearningEventUpdateManyWithoutUserNestedInput
   roadmaps?: Prisma.RoadmapUpdateManyWithoutCreatorNestedInput
   progress?: Prisma.UserProgressUpdateManyWithoutUserNestedInput
+  exerciseSubmissions?: Prisma.ExerciseSubmissionUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutCvsInput = {
@@ -17793,6 +19572,7 @@ export type UserUncheckedUpdateWithoutCvsInput = {
   learningEvents?: Prisma.LearningEventUncheckedUpdateManyWithoutUserNestedInput
   roadmaps?: Prisma.RoadmapUncheckedUpdateManyWithoutCreatorNestedInput
   progress?: Prisma.UserProgressUncheckedUpdateManyWithoutUserNestedInput
+  exerciseSubmissions?: Prisma.ExerciseSubmissionUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutCertificatesInput = {
@@ -17811,6 +19591,7 @@ export type UserCreateWithoutCertificatesInput = {
   learningEvents?: Prisma.LearningEventCreateNestedManyWithoutUserInput
   roadmaps?: Prisma.RoadmapCreateNestedManyWithoutCreatorInput
   progress?: Prisma.UserProgressCreateNestedManyWithoutUserInput
+  exerciseSubmissions?: Prisma.ExerciseSubmissionCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutCertificatesInput = {
@@ -17829,6 +19610,7 @@ export type UserUncheckedCreateWithoutCertificatesInput = {
   learningEvents?: Prisma.LearningEventUncheckedCreateNestedManyWithoutUserInput
   roadmaps?: Prisma.RoadmapUncheckedCreateNestedManyWithoutCreatorInput
   progress?: Prisma.UserProgressUncheckedCreateNestedManyWithoutUserInput
+  exerciseSubmissions?: Prisma.ExerciseSubmissionUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutCertificatesInput = {
@@ -17863,6 +19645,7 @@ export type UserUpdateWithoutCertificatesInput = {
   learningEvents?: Prisma.LearningEventUpdateManyWithoutUserNestedInput
   roadmaps?: Prisma.RoadmapUpdateManyWithoutCreatorNestedInput
   progress?: Prisma.UserProgressUpdateManyWithoutUserNestedInput
+  exerciseSubmissions?: Prisma.ExerciseSubmissionUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutCertificatesInput = {
@@ -17881,6 +19664,7 @@ export type UserUncheckedUpdateWithoutCertificatesInput = {
   learningEvents?: Prisma.LearningEventUncheckedUpdateManyWithoutUserNestedInput
   roadmaps?: Prisma.RoadmapUncheckedUpdateManyWithoutCreatorNestedInput
   progress?: Prisma.UserProgressUncheckedUpdateManyWithoutUserNestedInput
+  exerciseSubmissions?: Prisma.ExerciseSubmissionUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutLearningEventsInput = {
@@ -17899,6 +19683,7 @@ export type UserCreateWithoutLearningEventsInput = {
   interviewSessions?: Prisma.InterviewSessionCreateNestedManyWithoutUserInput
   roadmaps?: Prisma.RoadmapCreateNestedManyWithoutCreatorInput
   progress?: Prisma.UserProgressCreateNestedManyWithoutUserInput
+  exerciseSubmissions?: Prisma.ExerciseSubmissionCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutLearningEventsInput = {
@@ -17917,6 +19702,7 @@ export type UserUncheckedCreateWithoutLearningEventsInput = {
   interviewSessions?: Prisma.InterviewSessionUncheckedCreateNestedManyWithoutUserInput
   roadmaps?: Prisma.RoadmapUncheckedCreateNestedManyWithoutCreatorInput
   progress?: Prisma.UserProgressUncheckedCreateNestedManyWithoutUserInput
+  exerciseSubmissions?: Prisma.ExerciseSubmissionUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutLearningEventsInput = {
@@ -17951,6 +19737,7 @@ export type UserUpdateWithoutLearningEventsInput = {
   interviewSessions?: Prisma.InterviewSessionUpdateManyWithoutUserNestedInput
   roadmaps?: Prisma.RoadmapUpdateManyWithoutCreatorNestedInput
   progress?: Prisma.UserProgressUpdateManyWithoutUserNestedInput
+  exerciseSubmissions?: Prisma.ExerciseSubmissionUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutLearningEventsInput = {
@@ -17969,6 +19756,7 @@ export type UserUncheckedUpdateWithoutLearningEventsInput = {
   interviewSessions?: Prisma.InterviewSessionUncheckedUpdateManyWithoutUserNestedInput
   roadmaps?: Prisma.RoadmapUncheckedUpdateManyWithoutCreatorNestedInput
   progress?: Prisma.UserProgressUncheckedUpdateManyWithoutUserNestedInput
+  exerciseSubmissions?: Prisma.ExerciseSubmissionUncheckedUpdateManyWithoutUserNestedInput
 }
 
 export type UserCreateWithoutAiNotesInput = {
@@ -17987,6 +19775,7 @@ export type UserCreateWithoutAiNotesInput = {
   learningEvents?: Prisma.LearningEventCreateNestedManyWithoutUserInput
   roadmaps?: Prisma.RoadmapCreateNestedManyWithoutCreatorInput
   progress?: Prisma.UserProgressCreateNestedManyWithoutUserInput
+  exerciseSubmissions?: Prisma.ExerciseSubmissionCreateNestedManyWithoutUserInput
 }
 
 export type UserUncheckedCreateWithoutAiNotesInput = {
@@ -18005,6 +19794,7 @@ export type UserUncheckedCreateWithoutAiNotesInput = {
   learningEvents?: Prisma.LearningEventUncheckedCreateNestedManyWithoutUserInput
   roadmaps?: Prisma.RoadmapUncheckedCreateNestedManyWithoutCreatorInput
   progress?: Prisma.UserProgressUncheckedCreateNestedManyWithoutUserInput
+  exerciseSubmissions?: Prisma.ExerciseSubmissionUncheckedCreateNestedManyWithoutUserInput
 }
 
 export type UserCreateOrConnectWithoutAiNotesInput = {
@@ -18039,6 +19829,7 @@ export type UserUpdateWithoutAiNotesInput = {
   learningEvents?: Prisma.LearningEventUpdateManyWithoutUserNestedInput
   roadmaps?: Prisma.RoadmapUpdateManyWithoutCreatorNestedInput
   progress?: Prisma.UserProgressUpdateManyWithoutUserNestedInput
+  exerciseSubmissions?: Prisma.ExerciseSubmissionUpdateManyWithoutUserNestedInput
 }
 
 export type UserUncheckedUpdateWithoutAiNotesInput = {
@@ -18057,6 +19848,7 @@ export type UserUncheckedUpdateWithoutAiNotesInput = {
   learningEvents?: Prisma.LearningEventUncheckedUpdateManyWithoutUserNestedInput
   roadmaps?: Prisma.RoadmapUncheckedUpdateManyWithoutCreatorNestedInput
   progress?: Prisma.UserProgressUncheckedUpdateManyWithoutUserNestedInput
+  exerciseSubmissions?: Prisma.ExerciseSubmissionUncheckedUpdateManyWithoutUserNestedInput
 }
 
 
@@ -18072,6 +19864,7 @@ export type UserCountOutputType = {
   learningEvents: number
   roadmaps: number
   progress: number
+  exerciseSubmissions: number
 }
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -18082,6 +19875,7 @@ export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   learningEvents?: boolean | UserCountOutputTypeCountLearningEventsArgs
   roadmaps?: boolean | UserCountOutputTypeCountRoadmapsArgs
   progress?: boolean | UserCountOutputTypeCountProgressArgs
+  exerciseSubmissions?: boolean | UserCountOutputTypeCountExerciseSubmissionsArgs
 }
 
 /**
@@ -18143,6 +19937,13 @@ export type UserCountOutputTypeCountProgressArgs<ExtArgs extends runtime.Types.E
   where?: Prisma.UserProgressWhereInput
 }
 
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountExerciseSubmissionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.ExerciseSubmissionWhereInput
+}
+
 
 export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   user_id?: boolean
@@ -18161,6 +19962,7 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   learningEvents?: boolean | Prisma.User$learningEventsArgs<ExtArgs>
   roadmaps?: boolean | Prisma.User$roadmapsArgs<ExtArgs>
   progress?: boolean | Prisma.User$progressArgs<ExtArgs>
+  exerciseSubmissions?: boolean | Prisma.User$exerciseSubmissionsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
 
@@ -18187,6 +19989,7 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   learningEvents?: boolean | Prisma.User$learningEventsArgs<ExtArgs>
   roadmaps?: boolean | Prisma.User$roadmapsArgs<ExtArgs>
   progress?: boolean | Prisma.User$progressArgs<ExtArgs>
+  exerciseSubmissions?: boolean | Prisma.User$exerciseSubmissionsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
 
@@ -18200,6 +20003,7 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     learningEvents: Prisma.$LearningEventPayload<ExtArgs>[]
     roadmaps: Prisma.$RoadmapPayload<ExtArgs>[]
     progress: Prisma.$UserProgressPayload<ExtArgs>[]
+    exerciseSubmissions: Prisma.$ExerciseSubmissionPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     user_id: string
@@ -18558,6 +20362,7 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   learningEvents<T extends Prisma.User$learningEventsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$learningEventsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$LearningEventPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   roadmaps<T extends Prisma.User$roadmapsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$roadmapsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$RoadmapPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   progress<T extends Prisma.User$progressArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$progressArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$UserProgressPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  exerciseSubmissions<T extends Prisma.User$exerciseSubmissionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$exerciseSubmissionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ExerciseSubmissionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -19104,6 +20909,30 @@ export type User$progressArgs<ExtArgs extends runtime.Types.Extensions.InternalA
   take?: number
   skip?: number
   distinct?: Prisma.UserProgressScalarFieldEnum | Prisma.UserProgressScalarFieldEnum[]
+}
+
+/**
+ * User.exerciseSubmissions
+ */
+export type User$exerciseSubmissionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the ExerciseSubmission
+   */
+  select?: Prisma.ExerciseSubmissionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the ExerciseSubmission
+   */
+  omit?: Prisma.ExerciseSubmissionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.ExerciseSubmissionInclude<ExtArgs> | null
+  where?: Prisma.ExerciseSubmissionWhereInput
+  orderBy?: Prisma.ExerciseSubmissionOrderByWithRelationInput | Prisma.ExerciseSubmissionOrderByWithRelationInput[]
+  cursor?: Prisma.ExerciseSubmissionWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.ExerciseSubmissionScalarFieldEnum | Prisma.ExerciseSubmissionScalarFieldEnum[]
 }
 
 /**
@@ -20655,7 +22484,7 @@ export type UserProgressDefaultArgs<ExtArgs extends runtime.Types.Extensions.Int
 import { Request, Response } from 'express';
 import { NoteType } from '@/generated/prisma/client';
 import { createChatCompletion, extractFirstMessageContent, ChatMessage } from '@/services/groq.service';
-import { createModuleNote, getModuleById, getNextSequenceOrder, listModuleNotes } from './notes.services';
+import { createModuleNote, getModuleById, getNextSequenceOrder, listModuleNotes, deleteNote } from './notes.services';
 
 function extractUserId(req: Request) {
   const header = req.headers['x-user-id'];
@@ -20669,10 +22498,10 @@ export async function aiChatHandler(req: Request, res: Response) {
   try {
     // const userId = extractUserId(req);
     const userId = req.user?.user_id;
-
     if (!userId) {
       return res.status(401).json({ success: false, data: null, error: 'Unauthorized' });
     }
+
     const { moduleId } = req.params;
     const moduleMeta = await getModuleById(moduleId);
     if (!moduleMeta) {
@@ -20682,9 +22511,10 @@ export async function aiChatHandler(req: Request, res: Response) {
     const sequenceOrder = await getNextSequenceOrder(userId, moduleId);
     await createModuleNote(userId, moduleId, question, NoteType.user_question, sequenceOrder);
 
+    const moduleContentPreview = moduleMeta.content ? `${moduleMeta.content.substring(0, 1000)}...` : "No content available for this module.";
     const systemMessage: ChatMessage = {
       role: 'system',
-      content: 'You are a friendly learning assistant for SkillSync. Answer clearly and keep the tone helpful.',
+      content: `You are a tutor. Context: Module "${moduleMeta.title}". Content: "${moduleContentPreview}". Answer specific to this context.`,
     };
     const userMessage: ChatMessage = {
       role: 'user',
@@ -20716,6 +22546,17 @@ export async function listNotesHandler(req: Request, res: Response) {
     return res.status(200).json({ success: true, data: notes, error: null });
   } catch (error) {
     return res.status(500).json({ success: false, data: null, error: 'Internal Server Error' });
+  }
+}
+
+export async function deleteNoteHandler(req: Request, res: Response) {
+  try {
+    const userId = req.user?.user_id!;
+    const { noteId } = req.params;
+    await deleteNote(noteId, userId);
+    return res.status(200).json({ success: true, data: { message: "Note deleted" }});
+  } catch (e) {
+    return res.status(500).json({ success: false });
   }
 }
 ```
@@ -20750,7 +22591,7 @@ import prisma from '@/services/prisma.service';
 export async function getModuleById(moduleId: string) {
   return prisma.module.findUnique({
     where: { module_id: moduleId },
-    select: { module_id: true, title: true },
+    select: { module_id: true, title: true, content: true },
   });
 }
 
@@ -20786,6 +22627,16 @@ export async function listModuleNotes(userId: string, moduleId: string) {
       created_at: true,
       sequence_order: true,
     },
+  });
+}
+
+export async function deleteNote(noteId: string, userId: string) {
+  // Ensure user owns the note
+  const note = await prisma.aINote.findUnique({ where: { note_id: noteId }});
+  if (!note || note.user_id !== userId) throw new Error("Unauthorized");
+  
+  return prisma.aINote.delete({
+    where: { note_id: noteId }
   });
 }
 ```
@@ -20894,20 +22745,26 @@ export async function deleteExerciseHandler(req: Request, res: Response) {
 
 export async function submitExerciseHandler(req: Request, res: Response) {
   try {
-    // const userId = extractUserId(req);
     const userId = req.user?.user_id;
 
+    if (!userId) {
+      return res.status(401).json({ success: false, data: null, error: 'Unauthorized' });
+    }
+
     const { exerciseId } = req.params;
-    const submission = await submitExercise(exerciseId, {
-      answer_text: req.body.answer_text,
-      user_id: userId,
-    });
+    const { answer_text } = req.body;
+
+    const submission = await submitExercise(exerciseId, userId, answer_text);
+    
+    if (!submission) {
+      return res.status(404).json({ success: false, data: null, error: 'Exercise not found' });
+    }
+
     return res.status(201).json({ success: true, data: submission, error: null });
   } catch (error) {
     return res.status(500).json({ success: false, data: null, error: 'Internal Server Error' });
   }
 }
-
 ```
 
 ## File: src/api/exercises/exercises.routes.ts
@@ -20945,7 +22802,6 @@ router.post('/',
 router.put('/:exerciseId', 
   requireAuth, 
   requireRole([Role.admin, Role.creator]), 
-  verifyExerciseOwnership, 
   validateRequest(validateExerciseUpdate), 
   updateExerciseHandler
 );
@@ -20971,33 +22827,49 @@ export default router;
 ## File: src/api/exercises/exercises.services.ts
 
 ```typescript
-import { Prisma } from '@/generated/prisma/client';
-import prisma from '@/services/prisma.service';
+import { Prisma } from "@/generated/prisma/client";
+import prisma from "@/services/prisma.service";
 
 export async function listExercises(moduleId?: string) {
   const where = moduleId ? { module_id: moduleId } : undefined;
   return prisma.exercise.findMany({
     where,
-    orderBy: { created_at: 'desc' },
+    orderBy: { created_at: "desc" },
   });
 }
 
 type JsonPayload = Prisma.InputJsonValue;
 
-export async function createExercise(payload: { module_id: string; title: string; description: string; difficulty?: 'easy' | 'medium' | 'hard'; examples?: JsonPayload }) {
+export async function createExercise(payload: {
+  module_id: string;
+  title: string;
+  description: string;
+  difficulty?: "easy" | "medium" | "hard";
+  examples?: JsonPayload;
+}) {
   return prisma.exercise.create({
     data: {
       module_id: payload.module_id,
       title: payload.title,
       description: payload.description,
-      difficulty: payload.difficulty ?? 'medium',
+      difficulty: payload.difficulty ?? "medium",
       examples: payload.examples,
     },
   });
 }
 
-export async function updateExercise(exerciseId: string, payload: Partial<{ title: string; description: string; difficulty: 'easy' | 'medium' | 'hard'; examples?: JsonPayload }>) {
-  const existing = await prisma.exercise.findUnique({ where: { exercise_id: exerciseId } });
+export async function updateExercise(
+  exerciseId: string,
+  payload: Partial<{
+    title: string;
+    description: string;
+    difficulty: "easy" | "medium" | "hard";
+    examples?: JsonPayload;
+  }>,
+) {
+  const existing = await prisma.exercise.findUnique({
+    where: { exercise_id: exerciseId },
+  });
   if (!existing) {
     return null;
   }
@@ -21021,21 +22893,45 @@ export async function updateExercise(exerciseId: string, payload: Partial<{ titl
 }
 
 export async function deleteExercise(exerciseId: string) {
-  const existing = await prisma.exercise.findUnique({ where: { exercise_id: exerciseId } });
+  const existing = await prisma.exercise.findUnique({
+    where: { exercise_id: exerciseId },
+  });
   if (!existing) {
     return null;
   }
   return prisma.exercise.delete({ where: { exercise_id: exerciseId } });
 }
 
-export async function submitExercise(exerciseId: string, payload: { user_id?: string; answer_text: string }) {
-  return {
-    exercise_id: exerciseId,
-    submitted_at: new Date().toISOString(),
-    user_id: payload.user_id ?? null,
-    status: 'received',
-    answer_text: payload.answer_text,
-  };
+export async function submitExercise(
+  exerciseId: string,
+  userId: string,
+  answerText: string,
+) {
+  // Verify exercise exists
+  const exercise = await prisma.exercise.findUnique({
+    where: { exercise_id: exerciseId },
+  });
+
+  if (!exercise) {
+    return null;
+  }
+
+  // Create submission record
+  return prisma.exerciseSubmission.create({
+    data: {
+      exercise_id: exerciseId,
+      user_id: userId,
+      answer_text: answerText,
+    },
+    include: {
+      exercise: {
+        select: {
+          title: true,
+          difficulty: true,
+        },
+      },
+    },
+  });
 }
 
 ```
@@ -21086,7 +22982,8 @@ export function validateExerciseSubmission(body: { answer_text?: string }) {
 
 ```typescript
 import { Request, Response } from 'express';
-import { findModuleProgress, updateModuleProgress } from './progress.services';
+import { findModuleProgress, updateModuleProgress, getUserDashboardOverview, getRoadmapProgress } from './progress.services';
+
 
 function extractUserId(req: Request) {
   const header = req.headers['x-user-id'];
@@ -21132,6 +23029,19 @@ export async function updateModuleProgressHandler(req: Request, res: Response) {
   }
 }
 
+export async function getOverviewHandler(req: Request, res: Response) {
+  const userId = req.user?.user_id!;
+  const data = await getUserDashboardOverview(userId);
+  return res.status(200).json({ success: true, data });
+}
+
+export async function getRoadmapProgressHandler(req: Request, res: Response) {
+  const userId = req.user?.user_id!;
+  const { roadmapId } = req.params;
+  const data = await getRoadmapProgress(userId, roadmapId);
+  if (!data) return res.status(404).json({ success: false, error: 'Roadmap not found' });
+  return res.status(200).json({ success: true, data });
+}
 ```
 
 ## File: src/api/progress/progress.routes.ts
@@ -21143,8 +23053,12 @@ import { validateRequest } from '../../middleware/validateRequest';
 import { validateProgressUpdate } from './progress.validation';
 import { requireAuth } from '@/middleware/authenticate';
 import { checkEnrollment } from '@/middleware/ownership';
+import { getOverviewHandler, getRoadmapProgressHandler } from './progress.controller';
+import { getUserDashboardOverview, getRoadmapProgress } from './progress.services';
 
 const router: Router = Router();
+router.get('/overview', getOverviewHandler);
+router.get('/roadmaps/:roadmapId', getRoadmapProgressHandler);
 
 router.use('/modules/:moduleId/progress', requireAuth, checkEnrollment);
 
@@ -21233,6 +23147,70 @@ async function checkAndIssueCertificate(userId: string, moduleId: string) {
   }
 }
 
+export async function getUserDashboardOverview(userId: string) {
+  const distinctRoadmaps = await prisma.userProgress.findMany({
+    where: { user_id: userId },
+    select: { module: { select: { roadmap_id: true } } },
+    distinct: ['module_id']
+  });
+  
+  const roadmapIds = new Set(distinctRoadmaps.map(p => p.module.roadmap_id));
+  
+  const completedModules = await prisma.userProgress.count({
+    where: { user_id: userId, status: 'completed' }
+  });
+
+  const allProgress = await prisma.userProgress.findMany({
+    where: { user_id: userId },
+    select: { completion_percentage: true }
+  });
+  
+  const avgCompletion = allProgress.length > 0 
+    ? allProgress.reduce((acc, curr) => acc + Number(curr.completion_percentage), 0) / allProgress.length
+    : 0;
+
+  return {
+    enrolled_roadmaps: roadmapIds.size,
+    completed_modules: completedModules,
+    average_completion: avgCompletion.toFixed(2)
+  };
+}
+
+export async function getRoadmapProgress(userId: string, roadmapId: string) {
+  const roadmap = await prisma.roadmap.findUnique({
+    where: { roadmap_id: roadmapId },
+    select: { title: true }
+  });
+
+  if (!roadmap) return null;
+
+  const modules = await prisma.module.findMany({
+    where: { roadmap_id: roadmapId },
+    include: {
+      userProgress: {
+        where: { user_id: userId }
+      }
+    },
+    orderBy: { order_index: 'asc' }
+  });
+
+  const progressData = modules.map(m => ({
+    module_id: m.module_id,
+    title: m.title,
+    status: m.userProgress[0]?.status ?? 'not_started',
+    percentage: m.userProgress[0]?.completion_percentage ?? 0
+  }));
+
+  const total = progressData.length;
+  const completed = progressData.filter(p => p.status === 'completed').length;
+  const overall = total > 0 ? (completed / total) * 100 : 0;
+
+  return {
+    roadmap_title: roadmap.title,
+    overall_progress: overall,
+    modules: progressData
+  };
+}
 ```
 
 ## File: src/api/progress/progress.validation.ts
@@ -21493,7 +23471,7 @@ async function buildInterviewFeedback(questions: InterviewQuestion[], answers: I
     content: `Questions:\n${questionList}\n\nAnswers:\n${answerList}\n\nRespond as JSON with summary, score, highlights, areas_for_growth. Score between 0 and 100.`,
   };
 
-  const completion = await createChatCompletion([systemMessage, userMessage], 'gpt-oss-20b', 0.5);
+  const completion = await createChatCompletion([systemMessage, userMessage], 'openai/gpt-oss-20b', 0.5);
   const raw = extractFirstMessageContent(completion);
   let parsed: Partial<InterviewFeedback> = {};
   if (raw) {
@@ -21601,6 +23579,203 @@ export function validateInterviewSubmission(body: { user_answers?: Array<{ quest
     }
   });
   return errors;
+}
+```
+
+## File: src/api/interviews/interviews.websocket.ts
+
+```typescript
+import { Server as HttpServer } from 'http';
+import { WebSocket, WebSocketServer } from 'ws';
+import { verifyToken } from '@/services/jwt.service';
+import prisma from '@/services/prisma.service';
+import { createAudioTranscription } from '@/services/groq.service';
+import { createTempFile, deleteTempFile } from '@/services/file.service';
+import { Prisma } from '@/generated/prisma/client';
+
+interface InterviewMessage {
+  type: 'auth' | 'answer_audio' | 'answer_text' | 'next_question' | 'end_session';
+  payload?: any;
+}
+
+interface Question {
+  question_id: string;
+  text: string;
+  topic?: string;
+}
+
+export function setupInterviewWebSocket(server: HttpServer) {
+  const wss = new WebSocketServer({ server, path: '/interviews/ws' });
+
+  wss.on('connection', (ws: WebSocket) => {
+    let userId: string | null = null;
+    let sessionId: string | null = null;
+    let currentQuestions: Question[] = [];
+    let currentQuestionIndex = 0;
+
+    console.log('New WebSocket connection established');
+
+    ws.on('message', async (data) => {
+      try {
+        const message: InterviewMessage = JSON.parse(data.toString());
+
+        switch (message.type) {
+          case 'auth':
+            await handleAuth(message.payload);
+            break;
+          case 'answer_audio':
+            await handleAudioAnswer(message.payload);
+            break;
+          case 'answer_text':
+            await handleTextAnswer(message.payload);
+            break;
+          case 'end_session':
+            handleEndSession();
+            break;
+          default:
+            sendError('Unknown message type');
+        }
+      } catch (error) {
+        console.error('WebSocket error:', error);
+        sendError('Internal server error');
+      }
+    });
+
+    // --- Handlers ---
+
+    async function handleAuth(payload: { token: string; session_id: string }) {
+      const decoded = verifyToken(payload.token);
+      if (!decoded) {
+        sendError('Invalid token');
+        ws.close();
+        return;
+      }
+
+      userId = decoded.user_id;
+      sessionId = payload.session_id;
+
+      const session = await prisma.interviewSession.findUnique({
+        where: { session_id: sessionId },
+      });
+
+      if (!session || session.user_id !== userId) {
+        sendError('Session not found or unauthorized');
+        ws.close();
+        return;
+      }
+
+      // Load Questions
+      currentQuestions = session.questions as unknown as Question[];
+      
+      // Determine where to start (if resuming)
+      const existingAnswers = (session.user_answers as unknown as any[]) || [];
+      currentQuestionIndex = existingAnswers.length;
+
+      if (currentQuestionIndex >= currentQuestions.length) {
+        sendMessage('finished', { message: 'Interview already completed' });
+      } else {
+        sendNextQuestion();
+      }
+    }
+
+    async function handleAudioAnswer(payload: { audio_base64: string }) {
+      if (!userId || !sessionId) return sendError('Not authenticated');
+
+      const buffer = Buffer.from(payload.audio_base64, 'base64');
+      const tempPath = await createTempFile(buffer, '.webm'); // Assuming webm from browser
+
+      try {
+        // 1. Transcribe
+        const transcription = await createAudioTranscription(tempPath);
+        const textAnswer = transcription.text;
+
+        // 2. Save Answer
+        await saveAnswerToDB(textAnswer);
+
+        // 3. Ack to client
+        sendMessage('transcription', { text: textAnswer, question_id: currentQuestions[currentQuestionIndex].question_id });
+
+        // 4. Move Next
+        currentQuestionIndex++;
+        if (currentQuestionIndex < currentQuestions.length) {
+          sendNextQuestion();
+        } else {
+          sendMessage('finished', { message: 'All questions answered' });
+        }
+
+      } catch (error) {
+        console.error('Transcription error:', error);
+        sendError('Failed to process audio');
+      } finally {
+        await deleteTempFile(tempPath);
+      }
+    }
+
+    async function handleTextAnswer(payload: { text: string }) {
+      if (!userId || !sessionId) return sendError('Not authenticated');
+      
+      await saveAnswerToDB(payload.text);
+      
+      currentQuestionIndex++;
+      if (currentQuestionIndex < currentQuestions.length) {
+        sendNextQuestion();
+      } else {
+        sendMessage('finished', { message: 'All questions answered' });
+      }
+    }
+
+    async function saveAnswerToDB(answerText: string) {
+      if (!sessionId) return;
+      
+      const currentQ = currentQuestions[currentQuestionIndex];
+      const newAnswer = {
+        question_id: currentQ.question_id,
+        question_text: currentQ.text,
+        answer: answerText,
+        timestamp: new Date()
+      };
+
+      // Atomic update of the JSON array
+      // Note: Prisma doesn't support direct array push easily for JSON, 
+      // so we fetch, push, update. In high concurency this is bad, 
+      // but for single user session it's acceptable.
+      const session = await prisma.interviewSession.findUnique({ where: { session_id: sessionId }});
+      const currentAnswers = (session?.user_answers as unknown as any[]) || [];
+      
+      await prisma.interviewSession.update({
+        where: { session_id: sessionId },
+        data: {
+          user_answers: [...currentAnswers, newAnswer] as Prisma.InputJsonValue
+        }
+      });
+    }
+
+    function sendNextQuestion() {
+      const q = currentQuestions[currentQuestionIndex];
+      sendMessage('question', {
+        index: currentQuestionIndex,
+        total: currentQuestions.length,
+        question_id: q.question_id,
+        text: q.text
+      });
+    }
+
+    function handleEndSession() {
+      // Trigger AI feedback generation logic here if needed, 
+      // or client calls the REST submit endpoint to finalize.
+      ws.close();
+    }
+
+    function sendMessage(type: string, payload: any) {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type, payload }));
+      }
+    }
+
+    function sendError(message: string) {
+      sendMessage('error', { message });
+    }
+  });
 }
 ```
 
@@ -22181,6 +24356,7 @@ import { listPublishedRoadmaps, getRoadmapWithModules, enrollUserInRoadmap } fro
 import { isValidRoadmapId } from './roadmaps.validation';
 import { Status } from '@/generated/prisma/client';
 import prisma from '@/services/prisma.service';
+import { updateRoadmap, deleteRoadmap, getModuleDetail, updateModule, deleteModule } from './roadmaps.services';
 
 
 function extractUserId(req: Request) {
@@ -22287,6 +24463,57 @@ export async function createModuleHandler(req: Request, res: Response) {
     return res.status(500).json({ success: false, error: 'Internal Server Error' });
   }
 }
+
+export async function updateRoadmapHandler(req: Request, res: Response) {
+  try {
+    const { roadmapId } = req.params;
+    const updated = await updateRoadmap(roadmapId, req.body);
+    return res.status(200).json({ success: true, data: updated });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: 'Internal Server Error' });
+  }
+}
+
+export async function deleteRoadmapHandler(req: Request, res: Response) {
+  try {
+    const { roadmapId } = req.params;
+    await deleteRoadmap(roadmapId);
+    return res.status(200).json({ success: true, data: { message: 'Roadmap deleted' } });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: 'Internal Server Error' });
+  }
+}
+
+export async function getModuleHandler(req: Request, res: Response) {
+  try {
+    const { moduleId } = req.params;
+    const moduleData = await getModuleDetail(moduleId);
+    if (!moduleData) return res.status(404).json({ success: false, error: 'Module not found' });
+    return res.status(200).json({ success: true, data: moduleData });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: 'Internal Server Error' });
+  }
+}
+
+export async function updateModuleHandler(req: Request, res: Response) {
+  try {
+    const { moduleId } = req.params;
+    const updated = await updateModule(moduleId, req.body);
+    return res.status(200).json({ success: true, data: updated });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: 'Internal Server Error' });
+  }
+}
+
+export async function deleteModuleHandler(req: Request, res: Response) {
+  try {
+    const { moduleId } = req.params;
+    await deleteModule(moduleId);
+    return res.status(200).json({ success: true, data: { message: 'Module deleted' } });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: 'Internal Server Error' });
+  }
+}
 ```
 
 ## File: src/api/roadmaps/roadmaps.routes.ts
@@ -22295,8 +24522,12 @@ export async function createModuleHandler(req: Request, res: Response) {
 import { Router } from 'express';
 import { listRoadmapsHandler, getRoadmapHandler, enrollRoadmapHandler, createModuleHandler, createRoadmapHandler } from './roadmaps.controller';
 import { requireAuth, requireRole } from '@/middleware/authenticate';
-import { verifyRoadmapOwnership, checkOwnership } from '@/middleware/ownership';
+import { verifyRoadmapOwnership, checkOwnership, verifyModuleOwnership } from '@/middleware/ownership';
 import { Role } from '@/generated/prisma/client';
+import { 
+  updateRoadmapHandler, deleteRoadmapHandler, 
+  getModuleHandler, updateModuleHandler, deleteModuleHandler 
+} from './roadmaps.controller';
 
 const router: Router = Router();
 
@@ -22307,9 +24538,16 @@ router.get('/:roadmapId', getRoadmapHandler);
 // User: Roadmap (enroll)
 router.post('/:roadmapId/enroll', requireAuth, enrollRoadmapHandler);
 
-// Admin / Creator: Roadmap (ownership), Module (create)
+// Admin / Creator: Roadmap (ownership, update, delete)
 router.post('/', requireAuth, requireRole([Role.admin, Role.creator]), createRoadmapHandler);
+router.put('/:roadmapId', requireAuth, requireRole([Role.admin, Role.creator]), verifyRoadmapOwnership, updateRoadmapHandler);
+router.delete('/:roadmapId', requireAuth, requireRole([Role.admin, Role.creator]), verifyRoadmapOwnership, deleteRoadmapHandler);
+
+// Admin / Creator: Module (create)
 router.post('/:roadmapId/modules', requireAuth, requireRole([Role.admin, Role.creator]), verifyRoadmapOwnership, createModuleHandler);
+router.get('/:roadmapId/modules/:moduleId', requireAuth, getModuleHandler);
+router.put('/:roadmapId/modules/:moduleId', requireAuth, requireRole([Role.admin, Role.creator]), verifyModuleOwnership, updateModuleHandler);
+router.delete('/:roadmapId/modules/:moduleId', requireAuth, requireRole([Role.admin, Role.creator]), verifyModuleOwnership, deleteModuleHandler);
 
 export default router;
 
@@ -22421,6 +24659,38 @@ export async function enrollUserInRoadmap(userId: string, roadmapId: string) {
   return { roadmap_id: roadmapId, enrolled: toCreate.length };
 }
 
+export async function updateRoadmap(roadmapId: string, data: { title?: string; description?: string; category?: string; status?: Status; image_url?: string }) {
+  return prisma.roadmap.update({
+    where: { roadmap_id: roadmapId },
+    data,
+  });
+}
+
+export async function deleteRoadmap(roadmapId: string) {
+  // Cascading delete handles modules/progress via schema
+  return prisma.roadmap.delete({
+    where: { roadmap_id: roadmapId },
+  });
+}
+
+export async function getModuleDetail(moduleId: string) {
+  return prisma.module.findUnique({
+    where: { module_id: moduleId },
+  });
+}
+
+export async function updateModule(moduleId: string, data: { title?: string; description?: string; content?: string; order_index?: number; estimated_hours?: number }) {
+  return prisma.module.update({
+    where: { module_id: moduleId },
+    data,
+  });
+}
+
+export async function deleteModule(moduleId: string) {
+  return prisma.module.delete({
+    where: { module_id: moduleId },
+  });
+}
 ```
 
 ## File: src/api/roadmaps/roadmaps.validation.ts
@@ -22439,7 +24709,8 @@ export function isValidRoadmapId(value: string) {
 ```typescript
 import { Request, Response } from 'express';
 import { TemplateStyle } from '@/generated/prisma/client';
-import { createCV, listUserCVs, optimizeCVSection, updateCV } from './cvs.services';
+import { createCV, listUserCVs, optimizeCVSection, updateCV, getCVById } from './cvs.services';
+import { generateCVPdf, streamPdf } from '@/services/pdf.service';
 
 function extractUserId(req: Request) {
   const header = req.headers['x-user-id'];
@@ -22525,6 +24796,33 @@ export async function optimizeCVHandler(req: Request, res: Response) {
   }
 }
 
+export async function generatePDFHandler(req: Request, res: Response) {
+  try {
+    const userId = req.user?.user_id;
+    const { cvId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    const cvData = await getCVById(cvId);
+
+    if (!cvData || cvData.user_id !== userId) {
+      return res.status(404).json({ success: false, error: 'CV not found' });
+    }
+
+    // Call the shared PDF service
+    streamPdf(res, (doc) => {
+      generateCVPdf(doc, cvData);
+    });
+
+  } catch (error) {
+    console.error('PDF Generation Error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, error: 'Internal Server Error' });
+    }
+  }
+}
 ```
 
 ## File: src/api/cvs/cvs.routes.ts
@@ -22532,7 +24830,7 @@ export async function optimizeCVHandler(req: Request, res: Response) {
 ```typescript
 import { Router } from 'express';
 import { validateRequest } from '../../middleware/validateRequest';
-import { createCVHandler, listCVsHandler, optimizeCVHandler, updateCVHandler } from './cvs.controller';
+import { createCVHandler, listCVsHandler, optimizeCVHandler, updateCVHandler, generatePDFHandler } from './cvs.controller';
 import { validateCVCreation, validateCVOptimization, validateCVUpdate } from './cvs.validation';
 import { requireAuth } from '@/middleware/authenticate';
 import { checkOwnership } from '@/middleware/ownership';
@@ -22556,6 +24854,12 @@ router.post('/:cvId/optimize',
     validateRequest(validateCVOptimization), 
     optimizeCVHandler
 );
+
+router.post('/:cvId/generate-pdf',
+    checkOwnership('cV', 'cvId'),
+    generatePDFHandler
+);
+
 
 // router.delete('/:cvId', checkOwnership('cV', 'cvId'), deleteCVHandler); 
 
@@ -22645,6 +24949,11 @@ export async function optimizeCVSection(cvId: string, section: 'personal_info' |
   };
 }
 
+export async function getCVById(cvId: string) {
+  return prisma.cV.findUnique({
+    where: { cv_id: cvId },
+  });
+}
 ```
 
 ## File: src/api/cvs/cvs.validation.ts
@@ -22693,6 +25002,8 @@ export function validateCVOptimization(body: { section?: string; text?: string }
 ```typescript
 import { Request, Response } from 'express';
 import { listUserCertificates, issueCertificate } from './certificates.services';
+import { generateCertificatePdf, streamPdf } from '@/services/pdf.service';
+import prisma from "@/services/prisma.service";
 
 function extractUserId(req: Request) {
   const header = req.headers['x-user-id'];
@@ -22737,6 +25048,32 @@ export async function issueCertificateHandler(req: Request, res: Response) {
   }
 }
 
+export async function downloadCertificatePdfHandler(req: Request, res: Response) {
+  try {
+    const { certificateId } = req.params;
+    const userId = req.user?.user_id;
+
+    const cert = await prisma.certificate.findUnique({
+      where: { certificate_id: certificateId },
+      include: { user: true, roadmap: true }
+    });
+
+    if (!cert || cert.user_id !== userId) {
+      return res.status(404).json({ success: false, error: 'Certificate not found' });
+    }
+
+    streamPdf(res, (doc) => {
+      generateCertificatePdf(doc, {
+        userName: cert.user.full_name,
+        courseName: cert.roadmap.title,
+        date: new Date(cert.issue_date)
+      });
+    });
+  } catch (error) {
+    console.error(error);
+    if (!res.headersSent) return res.status(500).json({ success: false, error: 'Internal Server Error' });
+  }
+}
 ```
 
 ## File: src/api/certificates/certificates.routes.ts
@@ -22845,10 +25182,35 @@ const config = {
 export default config;
 ```
 
+## File: src/services/file.service.ts
+
+```typescript
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
+import { v4 as uuidv4 } from 'uuid';
+
+export async function createTempFile(buffer: Buffer, extension = '.webm'): Promise<string> {
+  const tempDir = os.tmpdir();
+  const filePath = path.join(tempDir, `${uuidv4()}${extension}`);
+  await fs.promises.writeFile(filePath, buffer);
+  return filePath;
+}
+
+export async function deleteTempFile(filePath: string): Promise<void> {
+  try {
+    await fs.promises.unlink(filePath);
+  } catch (error) {
+    console.error(`Failed to delete temp file ${filePath}:`, error);
+  }
+}
+```
+
 ## File: src/services/groq.service.ts
 
 ```typescript
 import Groq from 'groq-sdk';
+import fs from 'fs';
 
 export type ChatMessage = {
   role: 'system' | 'user' | 'assistant';
@@ -22859,7 +25221,7 @@ const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
 const groqClient = GROQ_API_KEY ? new Groq({ apiKey: GROQ_API_KEY }) : null;
 
-export async function createChatCompletion(messages: ChatMessage[], model = 'gpt-oss-20b', temperature = 0.6) {
+export async function createChatCompletion(messages: ChatMessage[], model = 'openai/gpt-oss-20b', temperature = 0.6) {
   if (!groqClient) {
     throw new Error('Missing GROQ_API_KEY environment variable');
   }
@@ -22881,6 +25243,31 @@ export interface ChatCompletionResponse {
 
 export function extractFirstMessageContent(completion: Groq.Chat.Completions.ChatCompletion | null) {
   return completion?.choices?.[0]?.message?.content?.trim() || null;
+}
+
+export async function createAudioTranscription(filePath: string, prompt?: string) {
+  if (!groqClient) throw new Error('Missing GROQ_API_KEY');
+
+  return groqClient.audio.transcriptions.create({
+    file: fs.createReadStream(filePath),
+    model: "whisper-large-v3-turbo",
+    prompt,
+    response_format: "json",
+    language: "en",
+  });
+}
+
+export async function createSpeech(text: string): Promise<Buffer> {
+  if (!groqClient) throw new Error('Missing GROQ_API_KEY');
+
+  const response = await groqClient.audio.speech.create({
+    model: "playai-tts",
+    voice: "Fritz-PlayAI", 
+    input: text,
+    response_format: "wav"
+  });
+
+  return Buffer.from(await response.arrayBuffer());
 }
 ```
 
@@ -22931,6 +25318,85 @@ export function clearAuthCookie(res: Response) {
 }
 ```
 
+## File: src/services/pdf.service.ts
+
+```typescript
+import PDFDocument from 'pdfkit';
+import { Response } from 'express';
+
+export function streamPdf(res: Response, buildFn: (doc: PDFKit.PDFDocument) => void) {
+  const doc = new PDFDocument({ margin: 50 });
+
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', 'attachment; filename=document.pdf');
+
+  doc.pipe(res);
+  buildFn(doc);
+  doc.end();
+}
+
+export function generateCertificatePdf(doc: PDFKit.PDFDocument, data: { userName: string; courseName: string; date: Date }) {
+  // Border
+  doc.rect(20, 20, doc.page.width - 40, doc.page.height - 40).stroke();
+
+  // Header
+  doc.fontSize(30).font('Helvetica-Bold').text('CERTIFICATE OF COMPLETION', { align: 'center' });
+  doc.moveDown();
+  
+  // Body
+  doc.fontSize(20).font('Helvetica').text('This is to certify that', { align: 'center' });
+  doc.moveDown();
+  
+  doc.fontSize(25).font('Helvetica-Bold').text(data.userName, { align: 'center', underline: true });
+  doc.moveDown();
+  
+  doc.fontSize(20).font('Helvetica').text('Has successfully completed the roadmap', { align: 'center' });
+  doc.moveDown();
+  
+  doc.fontSize(25).font('Helvetica-Bold').text(data.courseName, { align: 'center' });
+  doc.moveDown(2);
+  
+  // Footer
+  doc.fontSize(15).text(`Date Issued: ${data.date.toLocaleDateString()}`, { align: 'center' });
+  doc.text('SkillSync Platform', { align: 'center' });
+}
+
+export function generateCVPdf(doc: PDFKit.PDFDocument, data: any) {
+  // Simple modern layout
+  doc.fontSize(25).font('Helvetica-Bold').text(data.cv_name || 'Curriculum Vitae', { align: 'left' });
+  doc.moveDown(0.5);
+  
+  if (data.personal_info) {
+    const info = data.personal_info;
+    doc.fontSize(12).font('Helvetica').text(`${info.name || ''} | ${info.email || ''} | ${info.phone || ''}`);
+    doc.moveDown();
+    doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
+    doc.moveDown();
+  }
+
+  const sections = ['education', 'experience', 'skills', 'projects'];
+  
+  sections.forEach(section => {
+    if (data[section] && Array.isArray(data[section]) && data[section].length > 0) {
+      doc.fontSize(16).font('Helvetica-Bold').text(section.toUpperCase());
+      doc.moveDown(0.5);
+      
+      data[section].forEach((item: any) => {
+        const title = item.title || item.degree || item.name || '';
+        const subtitle = item.company || item.school || '';
+        const desc = item.description || '';
+        
+        doc.fontSize(12).font('Helvetica-Bold').text(title);
+        if (subtitle) doc.fontSize(11).font('Helvetica-Oblique').text(subtitle);
+        if (desc) doc.fontSize(10).font('Helvetica').text(desc);
+        doc.moveDown(0.5);
+      });
+      doc.moveDown();
+    }
+  });
+}
+```
+
 ## File: src/services/prisma.service.ts
 
 ```typescript
@@ -22938,10 +25404,15 @@ import { PrismaClient } from '@/generated/prisma/client';
 import * as dotenv from 'dotenv';
 import {PrismaMariaDb} from '@prisma/adapter-mariadb';
 
+dotenv.config();
+
 const parsed_mysql = parseMySQLEnv();
 const mysql_adapter = new PrismaMariaDb({
     host: parsed_mysql.host,
     port: parsed_mysql.port,
+    user: parsed_mysql.user,
+    password: parsed_mysql.password,
+    database: parsed_mysql.database,
     connectionLimit: 10
 });
 

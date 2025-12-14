@@ -100,3 +100,36 @@ export async function enrollUserInRoadmap(userId: string, roadmapId: string) {
   }
   return { roadmap_id: roadmapId, enrolled: toCreate.length };
 }
+
+export async function updateRoadmap(roadmapId: string, data: { title?: string; description?: string; category?: string; status?: Status; image_url?: string }) {
+  return prisma.roadmap.update({
+    where: { roadmap_id: roadmapId },
+    data,
+  });
+}
+
+export async function deleteRoadmap(roadmapId: string) {
+  // Cascading delete handles modules/progress via schema
+  return prisma.roadmap.delete({
+    where: { roadmap_id: roadmapId },
+  });
+}
+
+export async function getModuleDetail(moduleId: string) {
+  return prisma.module.findUnique({
+    where: { module_id: moduleId },
+  });
+}
+
+export async function updateModule(moduleId: string, data: { title?: string; description?: string; content?: string; order_index?: number; estimated_hours?: number }) {
+  return prisma.module.update({
+    where: { module_id: moduleId },
+    data,
+  });
+}
+
+export async function deleteModule(moduleId: string) {
+  return prisma.module.delete({
+    where: { module_id: moduleId },
+  });
+}

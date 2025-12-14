@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { TemplateStyle } from '@/generated/prisma/client';
-import { createCV, listUserCVs, optimizeCVSection, updateCV } from './cvs.services';
+import { createCV, listUserCVs, optimizeCVSection, updateCV, getCVById } from './cvs.services';
+import { generateCVPdf, streamPdf } from '@/services/pdf.service';
 
 function extractUserId(req: Request) {
   const header = req.headers['x-user-id'];
@@ -83,5 +84,33 @@ export async function optimizeCVHandler(req: Request, res: Response) {
     return res.status(200).json({ success: true, data: result, error: null });
   } catch (error) {
     return res.status(500).json({ success: false, data: null, error: 'Internal Server Error' });
+  }
+}
+
+export async function generatePDFHandler(req: Request, res: Response) {
+  try {
+    const userId = req.user?.user_id;
+    const { cvId } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
+
+    const cvData = await getCVById(cvId);
+
+    if (!cvData || cvData.user_id !== userId) {
+      return res.status(404).json({ success: false, error: 'CV not found' });
+    }
+
+    // Call the shared PDF service
+    streamPdf(res, (doc) => {
+      generateCVPdf(doc, cvData);
+    });
+
+  } catch (error) {
+    console.error('PDF Generation Error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, error: 'Internal Server Error' });
+    }
   }
 }

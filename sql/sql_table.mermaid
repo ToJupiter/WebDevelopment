@@ -1,0 +1,154 @@
+erDiagram
+    User ||--o{ Roadmap : ""
+    User ||--o{ UserProgress : ""
+    User ||--o{ ExerciseSubmission : ""
+    User ||--o{ InterviewSession : ""
+    User ||--o{ CV : ""
+    User ||--o{ Certificate : ""
+    User ||--o{ LearningEvent : ""
+    User ||--o{ AINote : ""
+    
+    Roadmap ||--o{ Module : ""
+    Roadmap ||--o{ Certificate : ""
+    
+    Module ||--o{ UserProgress : ""
+    Module ||--o{ Exercise : ""
+    Module ||--o{ LearningEvent : ""
+    Module ||--o{ AINote : ""
+    
+    Exercise ||--o{ ExerciseSubmission : ""
+    
+    User {
+        *user_id string PK
+        email string
+        password_hash string
+        full_name string
+        current_level Level
+        role Role
+        avatar_url string
+        created_at datetime
+        updated_at datetime
+    }
+    
+    Roadmap {
+        *roadmap_id string PK
+        title string
+        description string
+        category string
+        image_url string
+        created_by string FK
+        status Status
+        created_at datetime
+        updated_at datetime
+    }
+    
+    Module {
+        *module_id string PK
+        roadmap_id string FK
+        title string
+        description string
+        content string
+        order_index int
+        estimated_hours decimal
+        created_at datetime
+        updated_at datetime
+    }
+    
+    UserProgress {
+        *progress_id string PK
+        user_id string FK
+        module_id string FK
+        status ProgressStatus
+        completion_percentage decimal
+        started_at datetime
+        completed_at datetime
+        last_accessed_at datetime
+    }
+    
+    Exercise {
+        *exercise_id string PK
+        module_id string FK
+        title string
+        description string
+        examples Json
+        starter_code string
+        solution_code string
+        difficulty Difficulty
+        created_at datetime
+        updated_at datetime
+    }
+    
+    ExerciseSubmission {
+        *submission_id string PK
+        exercise_id string FK
+        user_id string FK
+        answer_text string
+        submitted_at datetime
+    }
+    
+    InterviewSession {
+        *session_id string PK
+        user_id string FK
+        session_name string
+        interview_type InterviewType
+        questions Json
+        user_answers Json
+        ai_feedback Json
+        score decimal
+        created_at datetime
+    }
+    
+    CV {
+        *cv_id string PK
+        user_id string FK
+        cv_name string
+        template_style TemplateStyle
+        personal_info Json
+        education Json
+        experience Json
+        skills Json
+        projects Json
+        pdf_url string
+        created_at datetime
+        updated_at datetime
+    }
+    
+    Certificate {
+        *certificate_id string PK
+        user_id string FK
+        roadmap_id string FK
+        certificate_name string
+        issue_date datetime
+        pdf_url string
+    }
+    
+    LearningEvent {
+        *event_id string PK
+        user_id string FK
+        title string
+        description string
+        status EventStatus
+        start_utc datetime
+        end_utc datetime
+        all_day boolean
+        timezone string
+        module_id string FK
+        color string
+        is_ai_suggested boolean
+        reminder_minutes int
+        is_deleted boolean
+        created_at datetime
+        updated_at datetime
+    }
+    
+    AINote {
+        *note_id string PK
+        user_id string FK
+        module_id string FK
+        note_type NoteType
+        content string
+        created_at datetime
+        sequence_order int
+    }
+    
+    direction TB

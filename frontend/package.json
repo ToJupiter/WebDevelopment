@@ -12,7 +12,9 @@
   "dependencies": {
     "@ant-design/charts": "^2.6.6",
     "@ant-design/icons": "^6.1.0",
+    "@google/genai": "^1.33.0",
     "@tailwindcss/vite": "^4.1.18",
+    "@vitejs/plugin-react": "^5.1.2",
     "antd": "^6.1.0",
     "axios": "^1.13.2",
     "classnames": "^2.5.1",
@@ -20,7 +22,8 @@
     "lucide-react": "^0.561.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "react-router-dom": "^7.10.1"
+    "react-router-dom": "^7.10.1",
+    "recharts": "^3.5.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",

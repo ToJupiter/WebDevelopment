@@ -317,6 +317,7 @@ import interviewsRouter from './api/interviews/interviews.routes';
 import notesRouter from './api/notes/notes.routes';
 import progressRouter from './api/progress/progress.routes';
 import roadmapsRouter from './api/roadmaps/roadmaps.routes';
+import usersRouter from './api/users/users.routes';
 
 const app: Application = express();
 
@@ -345,6 +346,9 @@ app.get('/', (req: Request, res: Response) => {
 
 // Protected routes
 app.use('/api', apiLimiter)
+
+// User Routes
+app.use('/api/users', usersRouter);
 
 // requireAuth
 app.use('/api/calendar', requireAuth, calendarRouter);
@@ -22661,6 +22665,7 @@ export function validateAiChatPayload(body: { question?: string }) {
 ```typescript
 import { Request, Response } from 'express';
 import { createExercise, deleteExercise, listExercises, submitExercise, updateExercise } from './exercises.services';
+import { getExerciseById } from './exercises.services';
 
 function extractUserId(req: Request) {
   const header = req.headers['x-user-id'];
@@ -22766,6 +22771,20 @@ export async function submitExerciseHandler(req: Request, res: Response) {
     return res.status(500).json({ success: false, data: null, error: 'Internal Server Error' });
   }
 }
+
+export async function getExerciseHandler(req: Request, res: Response) {
+  try {
+    const { exerciseId } = req.params;
+    const exercise = await getExerciseById(exerciseId);
+    
+    if (!exercise) {
+      return res.status(404).json({ success: false, error: 'Exercise not found' });
+    }
+    return res.status(200).json({ success: true, data: exercise });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: 'Internal Server Error' });
+  }
+}
 ```
 
 ## File: src/api/exercises/exercises.routes.ts
@@ -22779,6 +22798,7 @@ import {
   listExercisesHandler,
   submitExerciseHandler,
   updateExerciseHandler,
+  getExerciseHandler
 } from './exercises.controller';
 import { validateExerciseCreation, validateExerciseSubmission, validateExerciseUpdate } from './exercises.validation';
 import { requireAuth, requireRole } from '@/middleware/authenticate';
@@ -22787,8 +22807,9 @@ import { Role } from '@/generated/prisma/client';
 
 const router: Router = Router();
 
-// User: Exercises (list)
+// User: Exercises (list, get detail)
 router.get('/', requireAuth, checkEnrollment, listExercisesHandler);
+router.get('/:exerciseId', requireAuth, verifyExerciseOwnership, getExerciseHandler);
 
 // Creator/ Admin: Exercises (create)
 router.post('/', 
@@ -22937,6 +22958,16 @@ export async function submitExercise(
   });
 }
 
+export async function getExerciseById(exerciseId: string) {
+  return prisma.exercise.findUnique({
+    where: { exercise_id: exerciseId },
+    include: {
+      module: {
+        select: { title: true, roadmap_id: true }
+      }
+    }
+  });
+}
 ```
 
 ## File: src/api/exercises/exercises.validation.ts
@@ -23060,6 +23091,8 @@ import { getOverviewHandler, getRoadmapProgressHandler } from './progress.contro
 import { getUserDashboardOverview, getRoadmapProgress } from './progress.services';
 
 const router: Router = Router();
+router.use(requireAuth);
+
 router.get('/overview', getOverviewHandler);
 router.get('/roadmaps/:roadmapId', getRoadmapProgressHandler);
 
@@ -23782,6 +23815,132 @@ export function setupInterviewWebSocket(server: HttpServer) {
 }
 ```
 
+## File: src/api/users/users.controller.ts
+
+```typescript
+import { Request, Response } from 'express';
+import { changeUserPassword, getUserProfile, updateUserProfile } from './users.services';
+
+export async function getMeHandler(req: Request, res: Response) {
+  try {
+    const userId = req.user?.user_id;
+    if (!userId) return res.status(401).json({ success: false, error: 'Unauthorized' });
+
+    const user = await getUserProfile(userId);
+    return res.status(200).json({ success: true, data: user });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: 'Internal Server Error' });
+  }
+}
+
+export async function updateMeHandler(req: Request, res: Response) {
+  try {
+    const userId = req.user?.user_id;
+    if (!userId) return res.status(401).json({ success: false, error: 'Unauthorized' });
+
+    const updated = await updateUserProfile(userId, {
+      full_name: req.body.full_name,
+      avatar_url: req.body.avatar_url,
+    });
+    return res.status(200).json({ success: true, data: updated });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: 'Internal Server Error' });
+  }
+}
+
+export async function changePasswordHandler(req: Request, res: Response) {
+  try {
+    const userId = req.user?.user_id;
+    const { old_password, new_password } = req.body;
+
+    if (!userId) return res.status(401).json({ success: false, error: 'Unauthorized' });
+    if (!old_password || !new_password) {
+      return res.status(400).json({ success: false, error: 'Both old and new passwords are required' });
+    }
+
+    const success = await changeUserPassword(userId, old_password, new_password);
+    if (!success) {
+      return res.status(400).json({ success: false, error: 'Incorrect old password' });
+    }
+
+    return res.status(200).json({ success: true, data: { message: 'Password updated successfully' } });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: 'Internal Server Error' });
+  }
+}
+```
+
+## File: src/api/users/users.routes.ts
+
+```typescript
+import { Router } from 'express';
+import { requireAuth } from '@/middleware/authenticate';
+import { changePasswordHandler, getMeHandler, updateMeHandler } from './users.controller';
+
+const router: Router = Router();
+
+router.use(requireAuth);
+
+router.get('/me', getMeHandler);
+router.put('/me', updateMeHandler);
+router.put('/me/password', changePasswordHandler);
+
+export default router;
+```
+
+## File: src/api/users/users.services.ts
+
+```typescript
+import prisma from '@/services/prisma.service';
+import bcrypt from 'bcryptjs';
+
+export async function getUserProfile(userId: string) {
+  return prisma.user.findUnique({
+    where: { user_id: userId },
+    select: {
+      user_id: true,
+      email: true,
+      full_name: true,
+      current_level: true,
+      role: true,
+      avatar_url: true,
+      created_at: true,
+    },
+  });
+}
+
+export async function updateUserProfile(userId: string, data: { full_name?: string; avatar_url?: string }) {
+  return prisma.user.update({
+    where: { user_id: userId },
+    data,
+    select: {
+      user_id: true,
+      email: true,
+      full_name: true,
+      avatar_url: true,
+    },
+  });
+}
+
+export async function changeUserPassword(userId: string, oldPassword: string, newPassword: string) {
+  const user = await prisma.user.findUnique({ where: { user_id: userId } });
+  if (!user) throw new Error('User not found');
+
+  const isValid = await bcrypt.compare(oldPassword, user.password_hash);
+  if (!isValid) return false;
+
+  const salt = await bcrypt.genSalt(10);
+  const password_hash = await bcrypt.hash(newPassword, salt);
+
+  await prisma.user.update({
+    where: { user_id: userId },
+    data: { password_hash },
+  });
+
+  return true;
+}
+```
+
 ## File: src/api/calendar/calendar.controller.ts
 
 ```typescript
@@ -24371,11 +24530,12 @@ export function validateLoginInput(input: LoginInput): ValidationError[] {
 
 ```typescript
 import { Request, Response } from 'express';
-import { listPublishedRoadmaps, getRoadmapWithModules, enrollUserInRoadmap } from './roadmaps.services';
+import { listPublishedRoadmaps, getRoadmapWithModules, enrollUserInRoadmap, listEnrolledRoadmaps } from './roadmaps.services';
 import { isValidRoadmapId } from './roadmaps.validation';
 import { Status } from '@/generated/prisma/client';
 import prisma from '@/services/prisma.service';
 import { updateRoadmap, deleteRoadmap, getModuleDetail, updateModule, deleteModule } from './roadmaps.services';
+
 
 
 function extractUserId(req: Request) {
@@ -24483,6 +24643,18 @@ export async function createModuleHandler(req: Request, res: Response) {
   }
 }
 
+export async function listEnrolledRoadmapsHandler(req: Request, res: Response) {
+  try {
+    const userId = req.user?.user_id;
+    if (!userId) return res.status(401).json({ success: false, error: 'Unauthorized' });
+
+    const roadmaps = await listEnrolledRoadmaps(userId);
+    return res.status(200).json({ success: true, data: roadmaps });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: 'Internal Server Error' });
+  }
+}
+
 export async function updateRoadmapHandler(req: Request, res: Response) {
   try {
     const { roadmapId } = req.params;
@@ -24539,14 +24711,16 @@ export async function deleteModuleHandler(req: Request, res: Response) {
 
 ```typescript
 import { Router } from 'express';
-import { listRoadmapsHandler, getRoadmapHandler, enrollRoadmapHandler, createModuleHandler, createRoadmapHandler } from './roadmaps.controller';
-import { requireAuth, requireRole } from '@/middleware/authenticate';
-import { verifyRoadmapOwnership, checkOwnership, verifyModuleOwnership } from '@/middleware/ownership';
-import { Role } from '@/generated/prisma/client';
 import { 
+  listRoadmapsHandler, getRoadmapHandler, enrollRoadmapHandler, 
+  createModuleHandler, createRoadmapHandler, listEnrolledRoadmapsHandler,
   updateRoadmapHandler, deleteRoadmapHandler, 
   getModuleHandler, updateModuleHandler, deleteModuleHandler 
 } from './roadmaps.controller';
+
+import { requireAuth, requireRole } from '@/middleware/authenticate';
+import { verifyRoadmapOwnership, checkOwnership, verifyModuleOwnership } from '@/middleware/ownership';
+import { Role } from '@/generated/prisma/client';
 
 const router: Router = Router();
 
@@ -24555,6 +24729,7 @@ router.get('/', listRoadmapsHandler);
 router.get('/:roadmapId', getRoadmapHandler);
 
 // User: Roadmap (enroll)
+router.get('/enrolled/list', requireAuth, listEnrolledRoadmapsHandler);
 router.post('/:roadmapId/enroll', requireAuth, enrollRoadmapHandler);
 
 // Admin / Creator: Roadmap (ownership, update, delete)
@@ -24678,6 +24853,41 @@ export async function enrollUserInRoadmap(userId: string, roadmapId: string) {
   return { roadmap_id: roadmapId, enrolled: toCreate.length };
 }
 
+export async function listEnrolledRoadmaps(userId: string) {
+  const progress = await prisma.userProgress.findMany({
+    where: { user_id: userId },
+    select: {
+      module: {
+        select: {
+          roadmap: {
+            select: {
+              roadmap_id: true,
+              title: true,
+              description: true,
+              category: true,
+              image_url: true,
+              status: true,
+              created_at: true,
+              updated_at: true,
+            }
+          }
+        }
+      }
+    },
+    distinct: ['module_id']
+  });
+
+  const uniqueRoadmaps = new Map();
+  progress.forEach(p => {
+    const r = p.module.roadmap;
+    if (!uniqueRoadmaps.has(r.roadmap_id)) {
+      uniqueRoadmaps.set(r.roadmap_id, r);
+    }
+  });
+
+  return Array.from(uniqueRoadmaps.values());
+}
+
 export async function updateRoadmap(roadmapId: string, data: { title?: string; description?: string; category?: string; status?: Status; image_url?: string }) {
   return prisma.roadmap.update({
     where: { roadmap_id: roadmapId },
@@ -24728,7 +24938,7 @@ export function isValidRoadmapId(value: string) {
 ```typescript
 import { Request, Response } from 'express';
 import { TemplateStyle } from '@/generated/prisma/client';
-import { createCV, listUserCVs, optimizeCVSection, updateCV, getCVById } from './cvs.services';
+import { createCV, listUserCVs, optimizeCVSection, updateCV, getCVById, deleteCV } from './cvs.services';
 import { generateCVPdf, streamPdf } from '@/services/pdf.service';
 
 function extractUserId(req: Request) {
@@ -24842,6 +25052,22 @@ export async function generatePDFHandler(req: Request, res: Response) {
     }
   }
 }
+
+export async function deleteCVHandler(req: Request, res: Response) {
+  try {
+    const userId = req.user?.user_id!;
+    const { cvId } = req.params;
+    const deleted = await deleteCV(userId, cvId);
+    
+    if (!deleted) {
+      return res.status(404).json({ success: false, error: "CV not found or unauthorized" });
+    }
+    
+    return res.status(200).json({ success: true, data: { message: "CV deleted" } });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: "Internal Server Error" });
+  }
+}
 ```
 
 ## File: src/api/cvs/cvs.routes.ts
@@ -24849,7 +25075,7 @@ export async function generatePDFHandler(req: Request, res: Response) {
 ```typescript
 import { Router } from 'express';
 import { validateRequest } from '../../middleware/validateRequest';
-import { createCVHandler, listCVsHandler, optimizeCVHandler, updateCVHandler, generatePDFHandler } from './cvs.controller';
+import { createCVHandler, listCVsHandler, optimizeCVHandler, updateCVHandler, generatePDFHandler, deleteCVHandler } from './cvs.controller';
 import { validateCVCreation, validateCVOptimization, validateCVUpdate } from './cvs.validation';
 import { requireAuth } from '@/middleware/authenticate';
 import { checkOwnership } from '@/middleware/ownership';
@@ -24880,7 +25106,7 @@ router.post('/:cvId/generate-pdf',
 );
 
 
-// router.delete('/:cvId', checkOwnership('cV', 'cvId'), deleteCVHandler); 
+router.delete('/:cvId', checkOwnership('cV', 'cvId'), deleteCVHandler); 
 
 export default router;
 
@@ -24972,6 +25198,13 @@ export async function getCVById(cvId: string) {
   return prisma.cV.findUnique({
     where: { cv_id: cvId },
   });
+}
+
+export async function deleteCV(userId: string, cvId: string) {
+  const existing = await prisma.cV.findUnique({ where: { cv_id: cvId } });
+  if (!existing || existing.user_id !== userId) return null;
+  
+  return prisma.cV.delete({ where: { cv_id: cvId } });
 }
 ```
 
@@ -25100,16 +25333,18 @@ export async function downloadCertificatePdfHandler(req: Request, res: Response)
 ```typescript
 import { Router } from 'express';
 import { validateRequest } from '../../middleware/validateRequest';
-import { issueCertificateHandler, listCertificatesHandler } from './certificates.controller';
+import { issueCertificateHandler, listCertificatesHandler, downloadCertificatePdfHandler } from './certificates.controller';
 import { validateCertificatePayload } from './certificates.validation';
 import { requireAuth, requireRole } from '@/middleware/authenticate';
 import { Role } from '@/generated/prisma/client';
+import { checkOwnership } from '@/middleware/ownership';
 
 const router: Router = Router();
 
 router.use(requireAuth);
 
 router.get('/', listCertificatesHandler);
+router.get('/:certificateId/download', checkOwnership('certificate', 'certificateId', 'user_id', 'certificate_id'), downloadCertificatePdfHandler);
 
 // Admin: Certificates (Create manually)
 router.post('/', requireRole([Role.admin]),validateRequest(validateCertificatePayload), issueCertificateHandler);

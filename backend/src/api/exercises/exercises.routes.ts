@@ -17,7 +17,7 @@ const router: Router = Router();
 
 // User: Exercises (list, get detail)
 router.get('/', requireAuth, checkEnrollment, listExercisesHandler);
-router.get('/:exerciseId', requireAuth, verifyExerciseOwnership, getExerciseHandler);
+router.get('/:exerciseId', requireAuth, getExerciseHandler);
 
 // Creator/ Admin: Exercises (create)
 router.post('/', 

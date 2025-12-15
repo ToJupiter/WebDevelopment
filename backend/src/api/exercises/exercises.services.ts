@@ -104,3 +104,14 @@ export async function submitExercise(
     },
   });
 }
+
+export async function getExerciseById(exerciseId: string) {
+  return prisma.exercise.findUnique({
+    where: { exercise_id: exerciseId },
+    include: {
+      module: {
+        select: { title: true, roadmap_id: true }
+      }
+    }
+  });
+}

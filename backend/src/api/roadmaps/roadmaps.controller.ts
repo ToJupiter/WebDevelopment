@@ -1,9 +1,10 @@
 import { Request, Response } from 'express';
-import { listPublishedRoadmaps, getRoadmapWithModules, enrollUserInRoadmap } from './roadmaps.services';
+import { listPublishedRoadmaps, getRoadmapWithModules, enrollUserInRoadmap, listEnrolledRoadmaps } from './roadmaps.services';
 import { isValidRoadmapId } from './roadmaps.validation';
 import { Status } from '@/generated/prisma/client';
 import prisma from '@/services/prisma.service';
 import { updateRoadmap, deleteRoadmap, getModuleDetail, updateModule, deleteModule } from './roadmaps.services';
+
 
 
 function extractUserId(req: Request) {
@@ -107,6 +108,18 @@ export async function createModuleHandler(req: Request, res: Response) {
 }
   catch (error) {
     console.error(error);
+    return res.status(500).json({ success: false, error: 'Internal Server Error' });
+  }
+}
+
+export async function listEnrolledRoadmapsHandler(req: Request, res: Response) {
+  try {
+    const userId = req.user?.user_id;
+    if (!userId) return res.status(401).json({ success: false, error: 'Unauthorized' });
+
+    const roadmaps = await listEnrolledRoadmaps(userId);
+    return res.status(200).json({ success: true, data: roadmaps });
+  } catch (error) {
     return res.status(500).json({ success: false, error: 'Internal Server Error' });
   }
 }

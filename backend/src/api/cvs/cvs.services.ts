@@ -82,3 +82,10 @@ export async function getCVById(cvId: string) {
     where: { cv_id: cvId },
   });
 }
+
+export async function deleteCV(userId: string, cvId: string) {
+  const existing = await prisma.cV.findUnique({ where: { cv_id: cvId } });
+  if (!existing || existing.user_id !== userId) return null;
+  
+  return prisma.cV.delete({ where: { cv_id: cvId } });
+}

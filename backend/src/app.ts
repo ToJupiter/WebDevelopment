@@ -18,6 +18,7 @@ import interviewsRouter from './api/interviews/interviews.routes';
 import notesRouter from './api/notes/notes.routes';
 import progressRouter from './api/progress/progress.routes';
 import roadmapsRouter from './api/roadmaps/roadmaps.routes';
+import usersRouter from './api/users/users.routes';
 
 const app: Application = express();
 
@@ -46,6 +47,9 @@ app.get('/', (req: Request, res: Response) => {
 
 // Protected routes
 app.use('/api', apiLimiter)
+
+// User Routes
+app.use('/api/users', usersRouter);
 
 // requireAuth
 app.use('/api/calendar', requireAuth, calendarRouter);

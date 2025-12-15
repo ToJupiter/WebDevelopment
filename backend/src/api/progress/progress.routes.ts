@@ -8,6 +8,8 @@ import { getOverviewHandler, getRoadmapProgressHandler } from './progress.contro
 import { getUserDashboardOverview, getRoadmapProgress } from './progress.services';
 
 const router: Router = Router();
+router.use(requireAuth);
+
 router.get('/overview', getOverviewHandler);
 router.get('/roadmaps/:roadmapId', getRoadmapProgressHandler);
 

@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { createExercise, deleteExercise, listExercises, submitExercise, updateExercise } from './exercises.services';
+import { getExerciseById } from './exercises.services';
 
 function extractUserId(req: Request) {
   const header = req.headers['x-user-id'];
@@ -103,5 +104,19 @@ export async function submitExerciseHandler(req: Request, res: Response) {
     return res.status(201).json({ success: true, data: submission, error: null });
   } catch (error) {
     return res.status(500).json({ success: false, data: null, error: 'Internal Server Error' });
+  }
+}
+
+export async function getExerciseHandler(req: Request, res: Response) {
+  try {
+    const { exerciseId } = req.params;
+    const exercise = await getExerciseById(exerciseId);
+    
+    if (!exercise) {
+      return res.status(404).json({ success: false, error: 'Exercise not found' });
+    }
+    return res.status(200).json({ success: true, data: exercise });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: 'Internal Server Error' });
   }
 }

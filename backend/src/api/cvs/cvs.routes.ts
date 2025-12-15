@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { validateRequest } from '../../middleware/validateRequest';
-import { createCVHandler, listCVsHandler, optimizeCVHandler, updateCVHandler, generatePDFHandler } from './cvs.controller';
+import { createCVHandler, listCVsHandler, optimizeCVHandler, updateCVHandler, generatePDFHandler, deleteCVHandler } from './cvs.controller';
 import { validateCVCreation, validateCVOptimization, validateCVUpdate } from './cvs.validation';
 import { requireAuth } from '@/middleware/authenticate';
 import { checkOwnership } from '@/middleware/ownership';
@@ -31,6 +31,6 @@ router.post('/:cvId/generate-pdf',
 );
 
 
-// router.delete('/:cvId', checkOwnership('cV', 'cvId'), deleteCVHandler); 
+router.delete('/:cvId', checkOwnership('cV', 'cvId'), deleteCVHandler); 
 
 export default router;

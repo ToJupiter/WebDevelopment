@@ -101,6 +101,41 @@ export async function enrollUserInRoadmap(userId: string, roadmapId: string) {
   return { roadmap_id: roadmapId, enrolled: toCreate.length };
 }
 
+export async function listEnrolledRoadmaps(userId: string) {
+  const progress = await prisma.userProgress.findMany({
+    where: { user_id: userId },
+    select: {
+      module: {
+        select: {
+          roadmap: {
+            select: {
+              roadmap_id: true,
+              title: true,
+              description: true,
+              category: true,
+              image_url: true,
+              status: true,
+              created_at: true,
+              updated_at: true,
+            }
+          }
+        }
+      }
+    },
+    distinct: ['module_id']
+  });
+
+  const uniqueRoadmaps = new Map();
+  progress.forEach(p => {
+    const r = p.module.roadmap;
+    if (!uniqueRoadmaps.has(r.roadmap_id)) {
+      uniqueRoadmaps.set(r.roadmap_id, r);
+    }
+  });
+
+  return Array.from(uniqueRoadmaps.values());
+}
+
 export async function updateRoadmap(roadmapId: string, data: { title?: string; description?: string; category?: string; status?: Status; image_url?: string }) {
   return prisma.roadmap.update({
     where: { roadmap_id: roadmapId },

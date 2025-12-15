@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { TemplateStyle } from '@/generated/prisma/client';
-import { createCV, listUserCVs, optimizeCVSection, updateCV, getCVById } from './cvs.services';
+import { createCV, listUserCVs, optimizeCVSection, updateCV, getCVById, deleteCV } from './cvs.services';
 import { generateCVPdf, streamPdf } from '@/services/pdf.service';
 
 function extractUserId(req: Request) {
@@ -112,5 +112,21 @@ export async function generatePDFHandler(req: Request, res: Response) {
     if (!res.headersSent) {
       res.status(500).json({ success: false, error: 'Internal Server Error' });
     }
+  }
+}
+
+export async function deleteCVHandler(req: Request, res: Response) {
+  try {
+    const userId = req.user?.user_id!;
+    const { cvId } = req.params;
+    const deleted = await deleteCV(userId, cvId);
+    
+    if (!deleted) {
+      return res.status(404).json({ success: false, error: "CV not found or unauthorized" });
+    }
+    
+    return res.status(200).json({ success: true, data: { message: "CV deleted" } });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: "Internal Server Error" });
   }
 }

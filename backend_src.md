@@ -273,6 +273,7 @@ enum NoteType {
 }
 ```
 
+
 ## File: prisma.config.ts
 
 ```typescript
@@ -22820,6 +22821,8 @@ router.post('/:exerciseId/submit',
   submitExerciseHandler
 );
 
+// TODO: get exercises detail
+
 export default router;
 
 ```
@@ -24040,11 +24043,27 @@ export async function softDeleteLearningEvent(eventId: string, userId: string) {
 import { ValidationError } from '@/api/auth/auth.validation';
 
 function isValidIsoDate(value?: string) {
-  if (!value || typeof value != 'string') {
-    return false;
-  }
+  if (typeof value !== 'string') return false;
+  
   const date = new Date(value);
-  return !Number.isNaN(date.getTime()) && date.toISOString() === value;
+  if (isNaN(date.getTime())) return false;
+  
+  // RFC 3339/ISO 8601 patterns
+  const isoPatterns = [
+    // YYYY-MM-DDTHH:mm:ss.sssZ (UTC)
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/,
+    
+    // YYYY-MM-DDTHH:mm:ss.sss±HH:mm (timezone offset)
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?[+-]\d{2}:\d{2}$/,
+    
+    // YYYY-MM-DDTHH:mm:ssZ (UTC, no milliseconds)
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/,
+    
+    // YYYY-MM-DD (date only)
+    /^\d{4}-\d{2}-\d{2}$/
+  ];
+  
+  return isoPatterns.some(pattern => pattern.test(value));
 }
 
 export function validateCalendarQuery(query: { start?: string; end?: string }) {

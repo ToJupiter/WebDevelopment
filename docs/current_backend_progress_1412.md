@@ -189,3 +189,65 @@ async function checkAndIssueCertificate(userId: string, moduleId: string) {
 - `src/api/notes/notes.services.ts`: Implement context-aware chat logic
 - `src/services/groq.service.ts`: Add module-specific prompt engineering
 
+# Backend Routes Analysis
+
+### Role Structure
+- **User**: Standard learner access
+- **Admin**: Full system access
+- **Creator**: Content creation privileges (to be ignored per instructions)
+
+## Critical Missing APIs & Issues
+
+### 1. Authentication Gaps
+- No password reset functionality
+- Missing profile management endpoints (update personal info, change password)
+
+### 2. Content Access Control Issues
+- Module content (`/roadmaps/:id/modules/:id`) requires authentication but lacks enrollment verification, potentially allowing unauthorized access to premium content
+- No route to list enrolled roadmaps for a user
+
+### 3. Exercise Management
+- Missing endpoint for retrieving exercise details (noted as TODO in code)
+- No route to view previous submissions or feedback
+
+### 4. Certificate Functionality
+- While certificates can be issued and listed, there's no endpoint to download/view certificate PDFs
+- Missing automatic certificate issuance upon roadmap completion
+
+### 5. CV Management
+- Delete CV functionality is commented out and not implemented
+- No endpoint to download CV PDFs after generation
+
+### 6. Progress Tracking
+- Progress overview endpoints lack authentication middleware
+- No analytics endpoints for learning patterns or performance metrics
+
+## WebSocket Integration Strategy
+
+For the interview functionality's WebSocket:
+1. Create a dedicated WebSocket service class
+2. Implement automatic reconnection logic
+3. Handle different message types (audio, text, session control)
+4. Proper cleanup on component unmount
+5. Real-time UI updates for interview state changes
+
+## Recommendations for API Completion
+
+1. **Add missing critical endpoints**:
+   - User profile management
+   - Password reset flow
+   - Certificate download endpoint
+   - CV deletion endpoint
+   - Exercise details endpoint
+
+2. **Fix security vulnerabilities**:
+   - Add authentication to all progress endpoints
+   - Add enrollment checks to module content access
+   - Review all ownership verification middleware
+
+3. **Enhance user experience**:
+   - Add search/filter endpoints for roadmaps and certificates
+   - Implement pagination for all list endpoints
+   - Add webhook endpoints for third-party integrations
+
+This analysis provides the foundation for developing a secure, feature-complete frontend that properly interfaces with the backend API structure while respecting its RBAC constraints.

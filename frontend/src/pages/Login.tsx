@@ -1,21 +1,30 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button, Input, Card } from '../components/ui/Common';
-import { CheckCircle2 } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Button, Input } from '../components/ui/Common';
+import { CheckCircle2, AlertCircle } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const Login = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
-  const [isRegister, setIsRegister] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
+    setError('');
+    
+    try {
+      await login({ email, password });
       navigate('/dashboard');
-    }, 1500);
+    } catch (err: any) {
+      setError(err?.formattedMessage || err?.response?.data?.error || 'Login failed. Please check your credentials.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -28,20 +37,38 @@ const Login = () => {
               L
             </div>
             <h2 className="text-3xl font-bold text-slate-900 tracking-tight">
-              {isRegister ? 'Create your account' : 'Welcome back'}
+              Welcome back
             </h2>
             <p className="mt-2 text-slate-500">
-              {isRegister ? 'Start your learning journey today.' : 'Please enter your details to sign in.'}
+              Please enter your details to sign in.
             </p>
           </div>
 
+          {error && (
+            <div className="p-4 bg-red-50 text-red-600 rounded-lg text-sm flex items-center gap-2">
+              <AlertCircle size={16} />
+              {error}
+            </div>
+          )}
+
           <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
             <div className="space-y-4">
-              {isRegister && (
-                 <Input label="Full Name" type="text" placeholder="John Doe" required />
-              )}
-              <Input label="Email address" type="email" placeholder="john@example.com" required />
-              <Input label="Password" type="password" placeholder="••••••••" required />
+              <Input 
+                label="Email address" 
+                type="email" 
+                placeholder="john@example.com" 
+                required 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+              <Input 
+                label="Password" 
+                type="password" 
+                placeholder="••••••••" 
+                required 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
             </div>
 
             <div className="flex items-center justify-between">
@@ -51,15 +78,13 @@ const Login = () => {
                   Remember me
                 </label>
               </div>
-              {!isRegister && (
-                <a href="#" className="text-sm font-medium text-brand-600 hover:text-brand-500">
-                  Forgot password?
-                </a>
-              )}
+              <a href="#" className="text-sm font-medium text-brand-600 hover:text-brand-500">
+                Forgot password?
+              </a>
             </div>
 
             <Button type="submit" variant="primary" className="w-full py-3" isLoading={isLoading}>
-              {isRegister ? 'Sign up' : 'Sign in'}
+              Sign in
             </Button>
             
             <div className="relative my-6">
@@ -74,13 +99,13 @@ const Login = () => {
           </form>
 
           <p className="text-center text-sm text-slate-600">
-            {isRegister ? 'Already have an account?' : 'Don\'t have an account?'}
-            <button 
-              onClick={() => setIsRegister(!isRegister)}
+            Don't have an account?
+            <Link 
+              to="/register"
               className="ml-1 font-semibold text-brand-600 hover:text-brand-500 focus:outline-none focus:underline"
             >
-              {isRegister ? 'Sign in' : 'Sign up'}
-            </button>
+              Sign up
+            </Link>
           </p>
         </div>
       </div>

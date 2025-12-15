@@ -96,10 +96,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           
           <div className="mt-8">
             <p className="px-4 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Settings</p>
-            <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors">
+            <NavLink 
+              to="/settings"
+              onClick={() => setSidebarOpen(false)}
+              className={({ isActive }) =>
+                `w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                  isActive 
+                    ? 'bg-brand-50 text-brand-600' 
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                }`
+              }
+            >
               <Settings size={20} />
               Preferences
-            </button>
+            </NavLink>
           </div>
         </nav>
 

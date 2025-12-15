@@ -12,11 +12,21 @@ import LearningModule from './pages/LearningModule';
 import Calendar from "./pages/Calendar";
 import CV from "./pages/CV";
 import Admin from "./pages/Admin";
+import Register from "./pages/Register";
+import Settings from "./pages/Settings";
+import { useAuth } from './context/AuthContext';
 
 // Protected Route Wrapper
+// Protected Route Wrapper
 const ProtectedRoute = () => {
-  // Mock auth check
-  const isAuthenticated = true;
+  const { isAuthenticated, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-500"></div>
+      </div>
+    );
+  }
   return isAuthenticated ? <Layout><Outlet /></Layout> : <Navigate to="/login" replace />;
 };
 
@@ -25,6 +35,7 @@ const App = () => {
     <Router>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
         
         <Route element={<ProtectedRoute />}>
           <Route path="/" element={<Dashboard />} />
@@ -38,6 +49,7 @@ const App = () => {
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/cv" element={<CV />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/settings" element={<Settings />} />
         </Route>
       </Routes>
     </Router>

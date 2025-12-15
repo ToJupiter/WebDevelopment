@@ -31,13 +31,37 @@ const data = [
 ];
 
 const Dashboard = () => {
+  const [stats, setStats] = React.useState<any>(null);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await import('../services/api').then(m => m.default.get('/progress/overview'));
+        setStats(response.data.data);
+      } catch (e) {
+        console.error("Failed to fetch dashboard stats", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStats();
+  }, []);
+
+  const statItems = [
+    { label: 'Overall Completion', value: stats ? `${stats.average_completion}%` : '0%', icon: <TrendingUp className="text-emerald-500" />, change: '+0%', color: 'emerald' },
+    { label: 'Enrolled Roadmaps', value: stats ? stats.enrolled_roadmaps : '0', icon: <Clock className="text-brand-500" />, change: 'Active', color: 'brand' },
+    { label: 'Modules Finished', value: stats ? stats.completed_modules : '0', icon: <Target className="text-amber-500" />, change: 'Keep going!', color: 'amber' },
+    { label: 'Certificates', value: '0', icon: <Award className="text-purple-500" />, change: 'Earn more', color: 'purple' },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Welcome Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-          <p className="text-slate-500 mt-1">Welcome back, Alex! You've learned for 32 hours this week.</p>
+          <p className="text-slate-500 mt-1">Welcome back! Track your learning progress.</p>
         </div>
         <div className="flex gap-3">
           <Button variant="outline" icon={<Calendar size={16} />}>Schedule</Button>
@@ -47,24 +71,19 @@ const Dashboard = () => {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Weekly Progress', value: '85%', icon: <TrendingUp className="text-emerald-500" />, change: '+12%', color: 'emerald' },
-          { label: 'Time Spent', value: '32h', icon: <Clock className="text-brand-500" />, change: '+4h', color: 'brand' },
-          { label: 'Modules Finished', value: '12', icon: <Target className="text-amber-500" />, change: '2 pending', color: 'amber' },
-          { label: 'Certificates', value: '4', icon: <Award className="text-purple-500" />, change: 'New!', color: 'purple' },
-        ].map((stat, i) => (
+        {statItems.map((stat, i) => (
           <Card key={i} className="flex flex-col justify-between">
             <div className="flex justify-between items-start mb-4">
               <div>
                 <p className="text-sm font-medium text-slate-500">{stat.label}</p>
-                <h3 className="text-2xl font-bold text-slate-900 mt-1">{stat.value}</h3>
+                <h3 className="text-2xl font-bold text-slate-900 mt-1">{loading ? '...' : stat.value}</h3>
               </div>
               <div className={`p-2 rounded-lg bg-${stat.color}-50`}>
                 {stat.icon}
               </div>
             </div>
             <div className="text-xs text-slate-500">
-              <span className="text-emerald-600 font-medium">{stat.change}</span> from last week
+              <span className="text-emerald-600 font-medium">{stat.change}</span>
             </div>
           </Card>
         ))}

@@ -22,3 +22,9 @@ The frontend is mostly a mock implementation with hardcoded data, while the back
 4. **File Storage Strategy**: We will need to store pictures for frontend somewhere. If the backend support image_url for that, we will use it. But if it does not, we will store them in the local directory of the frontend.
 5. **Notification System**: You need to add notification system to the frontend, taking the local time in the frontend system and inform whenever the user hits that time.
 
+# Final Phase Level 2
+## Frontend
+1. Please remove me every single placeholder components out of the frontend, get rid all of them. It is important that we get rid of every single placeholder patterns, get rid of them all. All buttons on screens must be routed somewhere.
+2. Please look at the backend APIs that did not have any frontend implementation. Please first of all, plan to implement them, adding the screens or whatever it takes to implement them. When I look in the frontend, some of them are silly placeholders, while backend and API documentation has specified that we do have the stuffs.
+3. Because we now have only 2 roles: Admin and User, it is important to know that the admin screens should have the buttons to do the CRUD options, and the user screens should not have those buttons. We should be building these without changing the screens, adding screens is okay but please keep this minimal and may be avoid abusing it. 
+4. Please focus on fixing the small stuffs, just like when we log in, the background is light, but the text is also light, making us blind when typing in. 

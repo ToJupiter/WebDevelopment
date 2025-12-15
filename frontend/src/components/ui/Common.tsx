@@ -124,11 +124,11 @@ export const Avatar: React.FC<{ src: string, alt: string, size?: 'sm' | 'md' | '
   );
 };
 
-export const ProgressBar: React.FC<{ progress: number, color?: string, height?: string }> = ({ progress, color = 'bg-brand-500', height = 'h-2' }) => {
+export const ProgressBar: React.FC<{ progress: number, color?: string, height?: string, className?: string, barClassName?: string }> = ({ progress, color = 'bg-brand-500', height = 'h-2', className = '', barClassName = '' }) => {
   return (
-    <div className={`w-full bg-slate-100 rounded-full overflow-hidden ${height}`}>
+    <div className={`w-full bg-slate-100 rounded-full overflow-hidden ${height} ${className}`}>
       <div 
-        className={`${color} ${height} rounded-full transition-all duration-1000 ease-out`} 
+        className={`${color} ${height} rounded-full transition-all duration-1000 ease-out ${barClassName}`} 
         style={{ width: `${progress}%` }} 
       />
     </div>

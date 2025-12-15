@@ -12,7 +12,11 @@ import {
   Search,
   LogOut,
   User,
-  Settings
+  Settings,
+  Calendar as CalendarIcon,
+  FileText,
+  Award,
+  Shield
 } from 'lucide-react';
 import { Avatar } from './ui/Common';
 
@@ -30,12 +34,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const menuItems = [
     { icon: <LayoutDashboard size={20} />, label: 'Dashboard', path: '/dashboard' },
     { icon: <Map size={20} />, label: 'Roadmaps', path: '/roadmaps' },
-    { icon: <BookOpen size={20} />, label: 'My Learning', path: '/learning' },
+    // { icon: <BookOpen size={20} />, label: 'My Learning', path: '/learning' },
     { icon: <BarChart2 size={20} />, label: 'Analytics', path: '/analytics' },
-    { icon: <Video size={20} />, label: 'Learning', path: '/learning' },
-    { icon: <Video size={20} />, label: 'Calendar', path: '/calendar' },
-    { icon: <Video size={20} />, label: 'CV', path: '/cv' },
-    { icon: <Video size={20} />, label: 'Admin', path: '/admin' },
+    { icon: <Video size={20} />, label: 'Interview', path: '/interview' },
+    { icon: <BookOpen size={20} />, label: 'Learning', path: '/learning' },
+    { icon: <CalendarIcon size={20} />, label: 'Calendar', path: '/calendar' }, // Renamed from Video
+    { icon: <FileText size={20} />, label: 'CV', path: '/cv' }, // Renamed from Video
+    { icon: <Award size={20} />, label: 'Certificates', path: '/certificates' },
+    { icon: <Shield size={20} />, label: 'Admin', path: '/admin' }, // Renamed from Video
   ];
 
   const handleLogout = () => {
@@ -66,7 +72,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-brand-500/30">
               L
             </div>
-            <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700">Lumina</span>
+            <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700">SkillSync</span>
           </div>
           <button onClick={toggleSidebar} className="ml-auto lg:hidden text-slate-500">
             <X size={24} />

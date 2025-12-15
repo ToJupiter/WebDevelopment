@@ -51,7 +51,7 @@ const Register = () => {
             <span className="text-xl font-bold">L</span>
           </div>
           <h1 className="text-2xl font-bold text-slate-900">Create Account</h1>
-          <p className="text-slate-500 mt-2">Join Lumina Learning today</p>
+          <p className="text-slate-500 mt-2">Join SkillSync Learning today</p>
         </div>
 
         {error && (

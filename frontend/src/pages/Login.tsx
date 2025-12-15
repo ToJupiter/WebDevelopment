@@ -87,15 +87,7 @@ const Login = () => {
               Sign in
             </Button>
             
-            <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200"></div></div>
-                <div className="relative flex justify-center text-sm"><span className="px-2 bg-slate-50 text-slate-500">Or continue with</span></div>
-            </div>
 
-             <div className="grid grid-cols-2 gap-3">
-                <Button type="button" variant="outline" className="w-full">Google</Button>
-                <Button type="button" variant="outline" className="w-full">GitHub</Button>
-             </div>
           </form>
 
           <p className="text-center text-sm text-slate-600">
@@ -121,7 +113,7 @@ const Login = () => {
         <div className="relative z-20 max-w-lg px-8 text-center text-white">
             <h1 className="text-4xl font-bold mb-6 leading-tight">Master New Skills with AI-Powered Roadmaps</h1>
             <p className="text-lg text-indigo-100 mb-8 leading-relaxed">
-                Join thousands of developers and designers accelerating their careers with Lumina's adaptive learning paths.
+                Join thousands of developers and designers accelerating their careers with SkillSync's adaptive learning paths.
             </p>
             <div className="space-y-4">
                  {[

@@ -28,3 +28,17 @@ The frontend is mostly a mock implementation with hardcoded data, while the back
 2. Please look at the backend APIs that did not have any frontend implementation. Please first of all, plan to implement them, adding the screens or whatever it takes to implement them. When I look in the frontend, some of them are silly placeholders, while backend and API documentation has specified that we do have the stuffs.
 3. Because we now have only 2 roles: Admin and User, it is important to know that the admin screens should have the buttons to do the CRUD options, and the user screens should not have those buttons. We should be building these without changing the screens, adding screens is okay but please keep this minimal and may be avoid abusing it. 
 4. Please focus on fixing the small stuffs, just like when we log in, the background is light, but the text is also light, making us blind when typing in. 
+
+# Final Phase Level 3
+1. `Dashboard.tsx`: the learning activity graph is wrong, the Continue Learning box is also placeholder, the Pro Tip Practice Makes perfect should be routed to interview section.
+2. `Roadmaps.tsx`: for admin, add Update/Delete/Create with real functionality. For user, define us a state of completion for roadmaps (maybe complete all modules, maybe complete all exercises).
+3. `Analytics.tsx`: please watch the API endpoints for actual graph.
+4. `Interview.tsx`: instead of loading the sample questions from the backend source, please attach it to the AI generation logic in the actual backend. I will provide you with `*.routes.ts`, for you to understand the circumstances deeply and have plan to watch it carefully.
+5. `Learning.tsx`: the picture and the placeholder course should be displayed with your most completed course in the Roadmaps. The filters should work correctly, the active modules are the ones that you enrolled in. 
+6. `Calendar.tsx`: for Calendar, you should link it with the actual calendar in the backend routes. It is important that the calendar should work correctly instead of being a placeholder like this. It should be actual today's calendar, fetching and have actual events linking to it. Everything in the backend is ready, why does it have to be like this? Find a way to implement notifications as a frontend features, based on the LearningEvent of the backend.
+7. `CV.tsx`: remove the AI enhanced CV button. And also, generate a real form for CV putting in. And also, I will provide you with the backend APIs for CV. I do not quite understand why we do not have good CV protection.
+8. `Certificates.tsx`: link this screen with the actual roadmap completion and button. 
+9. `Admin.tsx`: link this admin dashboard to actual counts and stuffs from the system. We may not need recent activity, it is not needed. But we would need the numbers and charts. Link them to the actual backend if it does have and plan to link if it does not have.
+10. `Preferences`: verify if changing password is ok, implement profile function (displaying user profiles). Remove Notifications tab.
+
+# Final Phase Level 4

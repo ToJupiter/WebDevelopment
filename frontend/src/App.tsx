@@ -14,6 +14,7 @@ import CV from "./pages/CV";
 import Admin from "./pages/Admin";
 import Register from "./pages/Register";
 import Settings from "./pages/Settings";
+import Certificates from "./pages/Certificates";
 import { useAuth } from './context/AuthContext';
 
 // Protected Route Wrapper
@@ -45,11 +46,12 @@ const App = () => {
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/interview" element={<Interview />} />
           <Route path="/learning" element={<Learning />} />
-          <Route path="/learning/:moduleId" element={<LearningModule />} />
+          <Route path="/roadmaps/:roadmapId/modules/:moduleId" element={<LearningModule />} />
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/cv" element={<CV />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/certificates" element={<Certificates />} />
         </Route>
       </Routes>
     </Router>

@@ -273,7 +273,6 @@ enum NoteType {
 }
 ```
 
-
 ## File: prisma.config.ts
 
 ```typescript
@@ -22809,7 +22808,7 @@ const router: Router = Router();
 
 // User: Exercises (list, get detail)
 router.get('/', requireAuth, checkEnrollment, listExercisesHandler);
-router.get('/:exerciseId', requireAuth, verifyExerciseOwnership, getExerciseHandler);
+router.get('/:exerciseId', requireAuth, getExerciseHandler);
 
 // Creator/ Admin: Exercises (create)
 router.post('/', 
@@ -23628,6 +23627,23 @@ import prisma from '@/services/prisma.service';
 import { createAudioTranscription } from '@/services/groq.service';
 import { createTempFile, deleteTempFile } from '@/services/file.service';
 import { Prisma } from '@/generated/prisma/client';
+import config from '@/config';
+
+function parseCookies(request: any) {
+  const list: any = {};
+  const cookieHeader = request.headers.cookie;
+  if (!cookieHeader) return list;
+
+  cookieHeader.split(`;`).forEach(function(cookie: any) {
+    let [ name, ...rest] = cookie.split(`=`);
+    name = name?.trim();
+    if (!name) return;
+    const value = rest.join(`=`).trim();
+    if (!value) return;
+    list[name] = decodeURIComponent(value);
+  });
+  return list;
+}
 
 interface InterviewMessage {
   type: 'auth' | 'answer_audio' | 'answer_text' | 'next_question' | 'end_session';
@@ -23643,7 +23659,9 @@ interface Question {
 export function setupInterviewWebSocket(server: HttpServer) {
   const wss = new WebSocketServer({ server, path: '/interviews/ws' });
 
-  wss.on('connection', (ws: WebSocket) => {
+  wss.on('connection', (ws: WebSocket, req: any) => {
+    const cookies = parseCookies(req);
+    const tokenFromCookie = cookies[config.cookieName];
     let userId: string | null = null;
     let sessionId: string | null = null;
     let currentQuestions: Question[] = [];
@@ -23679,8 +23697,14 @@ export function setupInterviewWebSocket(server: HttpServer) {
 
     // --- Handlers ---
 
-    async function handleAuth(payload: { token: string; session_id: string }) {
-      const decoded = verifyToken(payload.token);
+    async function handleAuth(payload: { token?: string; session_id: string }) {
+      const token = payload.token || tokenFromCookie;
+      if (!token) {
+        sendError('Authentication required');
+        ws.close();
+        return;
+      }
+      const decoded = verifyToken(token);
       if (!decoded) {
         sendError('Invalid token');
         ws.close();

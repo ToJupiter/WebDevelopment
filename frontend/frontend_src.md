@@ -1,3 +1,74 @@
+# Source Code Summary
+
+
+Generated on: /home/rocminfo/Templates/WebDevelopment/frontend
+
+File types included: .ts, .tsx, .html, .css
+
+---
+
+
+## `dist/assets/index-XGmXxU8j.css`
+
+```css
+body{background-color:#f8fafc;margin:0;font-family:Inter,-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif}html{scroll-behavior:smooth}:root{font-family:system-ui,Avenir,Helvetica,Arial,sans-serif;line-height:1.5;font-weight:400;color-scheme:light dark;color:#ffffffde;background-color:#242424;font-synthesis:none;text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}a{font-weight:500;color:#646cff;text-decoration:inherit}a:hover{color:#535bf2}body{margin:0;min-width:320px;min-height:100vh}h1{font-size:3.2em;line-height:1.1}button{border-radius:8px;border:1px solid transparent;padding:.6em 1.2em;font-size:1em;font-weight:500;font-family:inherit;cursor:pointer;transition:border-color .25s}button:hover{border-color:#646cff}button:focus,button:focus-visible{outline:4px auto -webkit-focus-ring-color}@media(prefers-color-scheme:light){:root{color:#213547;background-color:#fff}a:hover{color:#747bff}button{background-color:#f9f9f9}}
+
+```
+
+## `dist/index.html`
+
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SkillSync Learning</title>
+
+    <!-- Fonts & Tailwind (optional if you use Tailwind via plugin) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              mono: ['Fira Code', 'monospace'],
+            },
+            colors: {
+              brand: {
+                50: '#eef2ff',
+                100: '#e0e7ff',
+                500: '#6366f1',
+                600: '#4f46e5',
+                700: '#4338ca',
+              }
+            }
+          }
+        }
+      }
+    </script>
+
+    <style>
+      body { background-color: #f8fafc; }
+      /* Custom scrollbar for webkit */
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+      ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+
+    <script type="module" crossorigin src="/assets/index-BC0FkON9.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-XGmXxU8j.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
+```
+
 ## `index.html`
 
 ```html
@@ -7,7 +78,7 @@
     <meta charset="utf-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Lumina Learning</title>
+    <title>SkillSync Learning</title>
 
     <!-- Fonts & Tailwind (optional if you use Tailwind via plugin) -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -118,11 +189,22 @@ import LearningModule from './pages/LearningModule';
 import Calendar from "./pages/Calendar";
 import CV from "./pages/CV";
 import Admin from "./pages/Admin";
+import Register from "./pages/Register";
+import Settings from "./pages/Settings";
+import Certificates from "./pages/Certificates";
+import { useAuth } from './context/AuthContext';
 
 // Protected Route Wrapper
+// Protected Route Wrapper
 const ProtectedRoute = () => {
-  // Mock auth check
-  const isAuthenticated = true;
+  const { isAuthenticated, loading } = useAuth();
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-500"></div>
+      </div>
+    );
+  }
   return isAuthenticated ? <Layout><Outlet /></Layout> : <Navigate to="/login" replace />;
 };
 
@@ -131,6 +213,7 @@ const App = () => {
     <Router>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
         
         <Route element={<ProtectedRoute />}>
           <Route path="/" element={<Dashboard />} />
@@ -140,10 +223,12 @@ const App = () => {
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/interview" element={<Interview />} />
           <Route path="/learning" element={<Learning />} />
-          <Route path="/learning/:moduleId" element={<LearningModule />} />
+          <Route path="/roadmaps/:roadmapId/modules/:moduleId" element={<LearningModule />} />
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/cv" element={<CV />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/certificates" element={<Certificates />} />
         </Route>
       </Routes>
     </Router>
@@ -170,7 +255,11 @@ import {
   Search,
   LogOut,
   User,
-  Settings
+  Settings,
+  Calendar as CalendarIcon,
+  FileText,
+  Award,
+  Shield
 } from 'lucide-react';
 import { Avatar } from './ui/Common';
 
@@ -190,10 +279,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { icon: <Map size={20} />, label: 'Roadmaps', path: '/roadmaps' },
     { icon: <BookOpen size={20} />, label: 'My Learning', path: '/learning' },
     { icon: <BarChart2 size={20} />, label: 'Analytics', path: '/analytics' },
-    { icon: <Video size={20} />, label: 'Learning', path: '/learning' },
-    { icon: <Video size={20} />, label: 'Calendar', path: '/calendar' },
-    { icon: <Video size={20} />, label: 'CV', path: '/cv' },
-    { icon: <Video size={20} />, label: 'Admin', path: '/admin' },
+    { icon: <Video size={20} />, label: 'Interview', path: '/interview' },
+    { icon: <BookOpen size={20} />, label: 'Learning', path: '/learning' },
+    { icon: <CalendarIcon size={20} />, label: 'Calendar', path: '/calendar' }, // Renamed from Video
+    { icon: <FileText size={20} />, label: 'CV', path: '/cv' }, // Renamed from Video
+    { icon: <Award size={20} />, label: 'Certificates', path: '/certificates' },
+    { icon: <Shield size={20} />, label: 'Admin', path: '/admin' }, // Renamed from Video
   ];
 
   const handleLogout = () => {
@@ -224,7 +315,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-brand-500/30">
               L
             </div>
-            <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700">Lumina</span>
+            <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700">SkillSync</span>
           </div>
           <button onClick={toggleSidebar} className="ml-auto lg:hidden text-slate-500">
             <X size={24} />
@@ -254,10 +345,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           
           <div className="mt-8">
             <p className="px-4 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Settings</p>
-            <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-colors">
+            <NavLink 
+              to="/settings"
+              onClick={() => setSidebarOpen(false)}
+              className={({ isActive }) =>
+                `w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                  isActive 
+                    ? 'bg-brand-50 text-brand-600' 
+                    : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                }`
+              }
+            >
               <Settings size={20} />
               Preferences
-            </button>
+            </NavLink>
           </div>
         </nav>
 
@@ -414,7 +515,7 @@ export const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { lab
     <div className="w-full">
       {label && <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>}
       <input 
-        className={`w-full px-3 py-2 bg-white border ${error ? 'border-red-500 focus:ring-red-200' : 'border-slate-300 focus:border-brand-500 focus:ring-brand-200'} rounded-md text-sm shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 transition-all duration-200 ${className}`}
+        className={`w-full px-3 py-2 bg-white border ${error ? 'border-red-500 focus:ring-red-200' : 'border-slate-300 focus:border-brand-500 focus:ring-brand-200'} rounded-md text-sm text-slate-900 shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 transition-all duration-200 ${className}`}
         {...props}
       />
       {error && <p className="mt-1 text-xs text-red-500 animate-pulse">{error}</p>}
@@ -450,16 +551,187 @@ export const Avatar: React.FC<{ src: string, alt: string, size?: 'sm' | 'md' | '
   );
 };
 
-export const ProgressBar: React.FC<{ progress: number, color?: string, height?: string }> = ({ progress, color = 'bg-brand-500', height = 'h-2' }) => {
+export const ProgressBar: React.FC<{ progress: number, color?: string, height?: string, className?: string, barClassName?: string }> = ({ progress, color = 'bg-brand-500', height = 'h-2', className = '', barClassName = '' }) => {
   return (
-    <div className={`w-full bg-slate-100 rounded-full overflow-hidden ${height}`}>
+    <div className={`w-full bg-slate-100 rounded-full overflow-hidden ${height} ${className}`}>
       <div 
-        className={`${color} ${height} rounded-full transition-all duration-1000 ease-out`} 
+        className={`${color} ${height} rounded-full transition-all duration-1000 ease-out ${barClassName}`} 
         style={{ width: `${progress}%` }} 
       />
     </div>
   );
 };
+```
+
+## `src/context/AuthContext.tsx`
+
+```tsx
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import api from '../services/api';
+import { User } from '../types';
+import { AuthResponse } from '../types';
+
+interface AuthContextType {
+  user: User | null;
+  loading: boolean;
+  isAuthenticated: boolean;
+  login: (data: any) => Promise<void>;
+  register: (data: any) => Promise<void>;
+  logout: () => Promise<void>;
+  checkAuth: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const checkAuth = async () => {
+    try {
+      setLoading(true);
+      // Calls /api/users/me to validate session cookie
+      const response = await api.get<{ data: User }>('/users/me');
+      setUser(response.data.data);
+    } catch (error) {
+      // 401 or other errors mean not logged in
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  const login = async (credentials: any) => {
+    const response = await api.post<{ data: AuthResponse }>('/auth/login', credentials);
+    setUser(response.data.data); // The backend returns the user object in data
+    // Cookie is set automatically by the backend
+  };
+
+  const register = async (userData: any) => {
+    const response = await api.post<{ data: AuthResponse }>('/auth/register', userData);
+    setUser(response.data.data);
+    // Cookie is set automatically by the backend
+  };
+
+  const logout = async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch (e) {
+      console.error("Logout failed", e);
+    } finally {
+      setUser(null);
+    }
+  };
+
+  return (
+    <AuthContext.Provider value={{ 
+      user, 
+      loading, 
+      isAuthenticated: !!user, 
+      login, 
+      register, 
+      logout,
+      checkAuth
+    }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+
+```
+
+## `src/hooks/useInterviewSocket.ts`
+
+```typescript
+import { useEffect, useRef, useState, useCallback } from 'react';
+
+type MessageType = 'auth' | 'answer_audio' | 'answer_text' | 'next_question' | 'end_session';
+
+interface WebSocketMessage {
+  type: MessageType;
+  payload?: any;
+}
+
+export const useInterviewSocket = (sessionId: string | null) => {
+  const [isConnected, setIsConnected] = useState(false);
+  const [lastMessage, setLastMessage] = useState<any>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+
+  useEffect(() => {
+    if (!sessionId) return;
+
+    // Use relative path to take advantage of Vite proxy
+    // If we are on https, use wss, else ws
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.host; // e.g. localhost:5173
+    // But our proxy is at /api, but WS proxying might need setup in Vite too!
+    // Vite proxy supports ws: true.
+    // The backend path is /interviews/ws.
+    
+    // NOTE: Vite proxy needs `ws: true` for websocket proxying.
+    // We added proxy for `/api`. We should add proxy for `/interviews/ws` or just `/interviews`.
+    // Backend `setupInterviewWebSocket` us path `/interviews/ws`.
+    // So we should connect to `ws://${host}/interviews/ws` if proxy is set up.
+    
+    // Let's assume we will fix Vite config to proxy /interviews as well.
+    const url = `${protocol}//${host}/interviews/ws`;
+    
+    const ws = new WebSocket(url);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      console.log('WS Connected');
+      setIsConnected(true);
+      // Send auth
+      ws.send(JSON.stringify({ type: 'auth', payload: { session_id: sessionId } }));
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        setLastMessage(data);
+      } catch (e) {
+        console.error("WS Parse error", e);
+      }
+    };
+
+    ws.onclose = () => {
+      console.log('WS Closed');
+      setIsConnected(false);
+    };
+
+    ws.onerror = (e) => {
+      console.error('WS Error', e);
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, [sessionId]);
+
+  const sendMessage = useCallback((type: MessageType, payload: any) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type, payload }));
+    } else {
+        console.warn("WS not connected, cannot send message");
+    }
+  }, []);
+
+  return { isConnected, lastMessage, sendMessage };
+};
+
 ```
 
 ## `src/index.css`
@@ -596,10 +868,13 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
+import { AuthProvider } from './context/AuthContext';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <AuthProvider>
+      <App />
+    </AuthProvider>
   </StrictMode>,
 )
 
@@ -771,78 +1046,178 @@ export default Analytics;
 ## `src/pages/CV.tsx`
 
 ```tsx
-import { Card, Button, ProgressBar, Badge } from "../components/ui/Common";
-import { FileText, Sparkles, Download } from "lucide-react";
+import React, { useState, useEffect } from 'react';
+import { Card, Button, ProgressBar, Badge, Input } from "../components/ui/Common";
+import { FileText, Sparkles, Download, Plus, Save, X } from "lucide-react";
+import api from '../services/api';
 
 const CV = () => {
-  const completeness = 65;
+  const [cv, setCv] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState<any>({});
+  
+  // Fetch CV
+  useEffect(() => {
+    fetchCV();
+  }, []);
+
+  const fetchCV = async () => {
+    try {
+      const res = await api.get('/cvs');
+      if (res.data.success && res.data.data.length > 0) {
+        setCv(res.data.data[0]);
+        setEditForm(res.data.data[0]);
+      } else {
+        setCv(null);
+      }
+    } catch (error) {
+      console.error("Failed to fetch CV", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createCV = async () => {
+    try {
+      setLoading(true);
+      const res = await api.post('/cvs', {
+        cv_name: 'My Professional CV',
+        template_style: 'modern',
+        skills: ["JavaScript", "React", "Node.js"], 
+        personal_info: { summary: "Passionate developer ready to build." }
+      });
+      if (res.data.success) {
+        setCv(res.data.data);
+        setEditForm(res.data.data);
+      }
+    } catch (error) {
+      console.error("Failed to create CV", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdate = async () => {
+    if (!cv) return;
+    try {
+      const res = await api.put(`/cvs/${cv.cv_id}`, editForm);
+      if (res.data.success) {
+        setCv(res.data.data);
+        setIsEditing(false);
+      }
+    } catch (error) {
+      console.error("Update failed", error);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!cv) return;
+    try {
+      const response = await api.post(`/cvs/${cv.cv_id}/generate-pdf`, {}, {
+        responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${cv.cv_name || 'CV'}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      console.error("Download failed", error);
+    }
+  };
+
+  const handleOptimise = async () => {
+     if (!cv) return;
+     // Placeholder for AI optimization trigger
+     alert("AI Optimization request sent! (Mock)");
+  };
+
+  if (loading) return <div className="p-8 text-center">Loading CV...</div>;
+
+  if (!cv) {
+    return (
+      <div className="h-[calc(100vh-8rem)] flex items-center justify-center">
+        <Card className="text-center p-8 max-w-md">
+            <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <FileText size={32} />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-900">No CV Found</h2>
+            <p className="text-slate-500 mb-6">Create your first CV to start tracking your skills and experience.</p>
+            <Button onClick={createCV} icon={<Plus size={18} />}>Create CV</Button>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">My Resume</h1>
+          <h1 className="text-2xl font-bold text-slate-900">{cv.cv_name}</h1>
           <p className="text-slate-500 mt-1">
-            Build and improve your professional profile.
+            {isEditing ? 'Editing Mode' : 'View and manage your professional profile.'}
           </p>
         </div>
-        <Button icon={<Download size={16} />}>Export PDF</Button>
+        <div className="flex gap-2">
+            {!isEditing && (
+                <>
+                <Button variant="outline" onClick={() => setIsEditing(true)}>Edit Profile</Button>
+                <Button icon={<Download size={16} />} onClick={handleDownload}>Export PDF</Button>
+                </>
+            )}
+            {isEditing && (
+                <>
+                <Button variant="ghost" onClick={() => { setIsEditing(false); setEditForm(cv); }}>Cancel</Button>
+                <Button icon={<Save size={16} />} onClick={handleUpdate}>Save Changes</Button>
+                </>
+            )}
+        </div>
       </div>
 
-      {/* Progress */}
-      <Card>
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <FileText className="text-brand-600" />
-            <p className="font-semibold text-slate-900">Profile Completeness</p>
-          </div>
-          <span className="font-bold text-slate-900">{completeness}%</span>
-        </div>
-        <ProgressBar progress={completeness} />
-      </Card>
-
-      {/* Sections */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card title="Summary">
-          <p className="text-slate-600">
-            Short professional summary goes here. Add your goals, strengths,
-            and current focus.
-          </p>
-          <Button variant="outline" size="sm" className="mt-4">
-            Edit
-          </Button>
+          {isEditing ? (
+             <textarea 
+                className="w-full p-3 border border-slate-300 rounded-md focus:ring-2 focus:ring-brand-500 outline-none min-h-[100px]"
+                value={editForm.personal_info?.summary || ''}
+                onChange={(e) => setEditForm({...editForm, personal_info: { ...editForm.personal_info, summary: e.target.value }})}
+             />
+          ) : (
+            <p className="text-slate-600 leading-relaxed">
+                {cv.personal_info?.summary || "No summary added yet."}
+            </p>
+          )}
         </Card>
 
         <Card title="Skills">
-          <div className="flex flex-wrap gap-2">
-            {["React", "Node.js", "SQL", "System Design"].map((s) => (
-              <Badge key={s} color="blue">
-                {s}
-              </Badge>
-            ))}
-          </div>
-          <Button variant="outline" size="sm" className="mt-4">
-            Manage Skills
-          </Button>
-        </Card>
-
-        <Card title="Experience">
-          <p className="text-slate-600">
-            No experience added yet. Start by adding your first role.
-          </p>
-          <Button size="sm" className="mt-4">
-            Add Experience
-          </Button>
+           {isEditing ? (
+              <div className="space-y-4">
+                 <p className="text-xs text-slate-500">Comma separated skills</p>
+                 <Input 
+                    value={Array.isArray(editForm.skills) ? editForm.skills.join(', ') : ''}
+                    onChange={(e) => setEditForm({...editForm, skills: e.target.value.split(',').map((s: string) => s.trim())})}
+                 />
+              </div>
+           ) : (
+              <div className="flex flex-wrap gap-2">
+                {Array.isArray(cv.skills) && cv.skills.map((s: string, i: number) => (
+                <Badge key={i} color="blue">{s}</Badge>
+                ))}
+            </div>
+           )}
         </Card>
 
         <Card className="bg-gradient-to-br from-indigo-900 to-slate-900 text-white">
           <Badge color="indigo">AI Assist</Badge>
           <h3 className="font-bold text-lg mt-2">Improve with AI</h3>
           <p className="text-indigo-200 text-sm mt-1">
-            Let Lumina rewrite your CV for clarity and impact.
+            Let SkillSync rewrite your CV for clarity and impact.
           </p>
-          <Button className="mt-4 bg-white text-indigo-900 border-none">
+          <Button className="mt-4 bg-white text-indigo-900 border-none" onClick={handleOptimise}>
             <Sparkles size={16} className="mr-2" />
             Enhance CV
           </Button>
@@ -936,6 +1311,128 @@ export default Calendar;
 
 ```
 
+## `src/pages/Certificates.tsx`
+
+```tsx
+import React, { useEffect, useState } from 'react';
+import { Card, Button, Badge } from '../components/ui/Common';
+import { Award, Download, Calendar, ExternalLink } from 'lucide-react';
+import api from '../services/api';
+
+interface Certificate {
+  certificate_id: string;
+  certificate_name: string;
+  issue_date: string;
+  pdf_url?: string;
+  roadmap?: {
+    title: string;
+    category: string;
+  };
+}
+
+const Certificates = () => {
+  const [certificates, setCertificates] = useState<Certificate[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchCertificates();
+  }, []);
+
+  const fetchCertificates = async () => {
+    try {
+      const res = await api.get('/certificates');
+      if (res.data.success) {
+        setCertificates(res.data.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch certificates", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDownload = async (id: string, name: string) => {
+    try {
+      const response = await api.get(`/certificates/${id}/download`, {
+        responseType: 'blob',
+      });
+      // Create blob link to download
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${name.replace(/\s+/g, '_')}_Certificate.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      console.error("Download failed", error);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">My Certificates</h1>
+          <p className="text-slate-500 mt-1">Verify and download your earned credentials.</p>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500"></div>
+        </div>
+      ) : certificates.length === 0 ? (
+        <Card className="text-center py-12">
+          <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
+            <Award size={32} />
+          </div>
+          <h3 className="text-lg font-medium text-slate-900">No Certificates Yet</h3>
+          <p className="text-slate-500 mt-2 mb-6">Complete roadmaps to earn certificates.</p>
+          <Button onClick={() => window.location.hash = '#/roadmaps'}>Browse Roadmaps</Button>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {certificates.map((cert) => (
+            <Card key={cert.certificate_id} className="group hover:border-brand-200 transition-colors">
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-lg flex items-center justify-center">
+                  <Award size={24} />
+                </div>
+                {cert.roadmap && <Badge color="blue">{cert.roadmap.category || 'Tech'}</Badge>}
+              </div>
+              
+              <h3 className="text-lg font-bold text-slate-900 mb-2">{cert.certificate_name}</h3>
+              <p className="text-sm text-slate-500 mb-4">
+                Issued on {new Date(cert.issue_date).toLocaleDateString()}
+              </p>
+
+              <div className="pt-4 border-t border-slate-100 flex gap-3">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex-1"
+                  onClick={() => handleDownload(cert.certificate_id, cert.certificate_name)}
+                  icon={<Download size={14} />}
+                >
+                  PDF
+                </Button>
+                <Button variant="ghost" size="sm" icon={<ExternalLink size={14} />}>
+                  Verify
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Certificates;
+
+```
+
 ## `src/pages/Dashboard.tsx`
 
 ```tsx
@@ -972,13 +1469,37 @@ const data = [
 ];
 
 const Dashboard = () => {
+  const [stats, setStats] = React.useState<any>(null);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await import('../services/api').then(m => m.default.get('/progress/overview'));
+        setStats(response.data.data);
+      } catch (e) {
+        console.error("Failed to fetch dashboard stats", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStats();
+  }, []);
+
+  const statItems = [
+    { label: 'Overall Completion', value: stats ? `${stats.average_completion}%` : '0%', icon: <TrendingUp className="text-emerald-500" />, change: '+0%', color: 'emerald' },
+    { label: 'Enrolled Roadmaps', value: stats ? stats.enrolled_roadmaps : '0', icon: <Clock className="text-brand-500" />, change: 'Active', color: 'brand' },
+    { label: 'Modules Finished', value: stats ? stats.completed_modules : '0', icon: <Target className="text-amber-500" />, change: 'Keep going!', color: 'amber' },
+    { label: 'Certificates', value: '0', icon: <Award className="text-purple-500" />, change: 'Earn more', color: 'purple' },
+  ];
+
   return (
     <div className="space-y-6">
       {/* Welcome Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Dashboard</h1>
-          <p className="text-slate-500 mt-1">Welcome back, Alex! You've learned for 32 hours this week.</p>
+          <p className="text-slate-500 mt-1">Welcome back! Track your learning progress.</p>
         </div>
         <div className="flex gap-3">
           <Button variant="outline" icon={<Calendar size={16} />}>Schedule</Button>
@@ -988,24 +1509,19 @@ const Dashboard = () => {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Weekly Progress', value: '85%', icon: <TrendingUp className="text-emerald-500" />, change: '+12%', color: 'emerald' },
-          { label: 'Time Spent', value: '32h', icon: <Clock className="text-brand-500" />, change: '+4h', color: 'brand' },
-          { label: 'Modules Finished', value: '12', icon: <Target className="text-amber-500" />, change: '2 pending', color: 'amber' },
-          { label: 'Certificates', value: '4', icon: <Award className="text-purple-500" />, change: 'New!', color: 'purple' },
-        ].map((stat, i) => (
+        {statItems.map((stat, i) => (
           <Card key={i} className="flex flex-col justify-between">
             <div className="flex justify-between items-start mb-4">
               <div>
                 <p className="text-sm font-medium text-slate-500">{stat.label}</p>
-                <h3 className="text-2xl font-bold text-slate-900 mt-1">{stat.value}</h3>
+                <h3 className="text-2xl font-bold text-slate-900 mt-1">{loading ? '...' : stat.value}</h3>
               </div>
               <div className={`p-2 rounded-lg bg-${stat.color}-50`}>
                 {stat.icon}
               </div>
             </div>
             <div className="text-xs text-slate-500">
-              <span className="text-emerald-600 font-medium">{stat.change}</span> from last week
+              <span className="text-emerald-600 font-medium">{stat.change}</span>
             </div>
           </Card>
         ))}
@@ -1122,73 +1638,118 @@ export default Dashboard;
 ## `src/pages/Interview.tsx`
 
 ```tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, Button } from '../components/ui/Common';
-import { Mic, MicOff, Square, Play, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { generateInterviewFeedback } from '../services/gemini';
+import { Send, Clock, RefreshCw } from 'lucide-react';
 import { InterviewFeedback } from '../types';
 import { 
   RadialBarChart, 
   RadialBar, 
-  Legend, 
   ResponsiveContainer 
 } from 'recharts';
+import api from '../services/api';
+import { useInterviewSocket } from '../hooks/useInterviewSocket';
 
 const Interview = () => {
-  const [isRecording, setIsRecording] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const { lastMessage, sendMessage } = useInterviewSocket(sessionId);
+  
   const [timer, setTimer] = useState(0);
-  const [transcript, setTranscript] = useState("");
+  const [currentAnswer, setCurrentAnswer] = useState("");
   const [feedback, setFeedback] = useState<InterviewFeedback | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [questionIndex, setQuestionIndex] = useState(0);
+  
+  // Current Question State
+  const [question, setQuestion] = useState<{ id: string; text: string; index: number; total: number } | null>(null);
+  const [answers, setAnswers] = useState<{ question_id: string; answer: string }[]>([]);
 
-  const questions = [
-    "Tell me about a challenging technical problem you solved recently.",
-    "Explain the concept of closures in JavaScript.",
-    "How do you handle state management in a large React application?",
-  ];
-
+  // Timer Logic - Auto start when question is present
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (isRecording) {
+    if (question && !isProcessing && !feedback) {
       interval = setInterval(() => setTimer(prev => prev + 1), 1000);
     }
     return () => clearInterval(interval);
-  }, [isRecording]);
+  }, [question, isProcessing, feedback]);
 
-  const toggleRecording = () => {
-    if (isRecording) {
-      // Stop recording
-      setIsRecording(false);
-      handleSubmission();
-    } else {
-      // Start recording
-      setIsRecording(true);
-      setTranscript("");
-      setFeedback(null);
-      setTimer(0);
-      // Simulate real-time transcription
-      simulateTranscription();
+  // WebSocket Message Handling
+  useEffect(() => {
+    if (!lastMessage) return;
+
+    switch (lastMessage.type) {
+      case 'question':
+        setQuestion({
+          id: lastMessage.payload.question_id,
+          text: lastMessage.payload.text,
+          index: lastMessage.payload.index,
+          total: lastMessage.payload.total,
+        });
+        setCurrentAnswer(""); 
+        setTimer(0);
+        setIsProcessing(false);
+        break;
+      
+      case 'finished':
+        // Triggered by socket when no more questions
+        // We rely on the effect below to handle final submission if needed, 
+        // OR we can trust the 'finished' event to be the signal to stop.
+        // However, we usually send the LAST answer before this.
+        // The backend might send 'finished' after the last answer ack.
+        // We just need to stop processing.
+        break;
+
+      case 'error':
+        console.error("Socket error:", lastMessage.payload.message);
+        setIsProcessing(false);
+        break;
+    }
+  }, [lastMessage]);
+
+  const startSession = async () => {
+    try {
+      setIsProcessing(true);
+      const res = await api.post('/interviews/sessions', {
+        session_name: `Practice Session ${new Date().toLocaleDateString()}`,
+        interview_type: 'simulated'
+      });
+      setSessionId(res.data.data.session_id);
+    } catch (error) {
+      console.error("Failed to start session", error);
+      setIsProcessing(false);
     }
   };
 
-  const simulateTranscription = () => {
-    const words = "I recently worked on optimizing a large-scale data visualization dashboard. The main challenge was rendering thousands of data points without blocking the main thread. I implemented a virtualization strategy using react-window and moved data processing to a Web Worker. This reduced the initial load time by 40% and improved frame rates significantly during interactions.".split(" ");
-    let i = 0;
-    const interval = setInterval(() => {
-      if (!isRecording && i >= words.length) clearInterval(interval);
-      setTranscript(prev => prev + (prev ? " " : "") + (words[i] || ""));
-      i++;
-      if (i >= words.length) clearInterval(interval);
-    }, 500);
-  };
+  const submitAnswer = () => {
+    if (!question) return;
 
-  const handleSubmission = async () => {
     setIsProcessing(true);
-    const result = await generateInterviewFeedback(questions[questionIndex], transcript || "User provided answer...");
-    setFeedback(result);
-    setIsProcessing(false);
+    const finalAnswer = currentAnswer.trim() || "No answer provided.";
+    
+    // Update local answers state
+    const newAnswers = [...answers, { question_id: question.id, answer: finalAnswer }];
+    setAnswers(newAnswers);
+
+    // Send to WebSocket
+    // Note: The backend will reply with next 'question' OR 'finished'
+    sendMessage('answer_text', { text: finalAnswer });
   };
+  
+  // Watch for 'finished' message to submit all answers to backend for final scoring
+  const answersRef = useRef(answers);
+  useEffect(() => { answersRef.current = answers; }, [answers]);
+
+  useEffect(() => {
+      if (lastMessage?.type === 'finished') {
+          setIsProcessing(true);
+          api.post(`/interviews/sessions/${sessionId}/submit`, {
+              user_answers: answersRef.current
+          }).then(res => {
+              setFeedback(res.data.data.ai_feedback);
+              setSessionId(null);
+          }).catch(err => console.error(err))
+          .finally(() => setIsProcessing(false));
+      }
+  }, [lastMessage, sessionId]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -1197,137 +1758,120 @@ const Interview = () => {
   };
 
   const scoreData = feedback ? [
-    { name: 'Score', uv: feedback.score, fill: '#6366f1' },
+    { name: 'Score', uv: feedback.score || 0, fill: '#6366f1' },
     { name: 'Max', uv: 100, fill: '#e2e8f0' }
   ] : [];
 
+  if (!sessionId && !feedback && !isProcessing) {
+      return (
+        <div className="h-[calc(100vh-8rem)] flex items-center justify-center">
+            <Card className="max-w-md w-full text-center p-8">
+                <div className="w-16 h-16 bg-brand-100 text-brand-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <Clock size={32} />
+                </div>
+                <h2 className="text-2xl font-bold text-slate-900 mb-2">Practice Interview</h2>
+                <p className="text-slate-500 mb-8">
+                    Start a simulated technical interview. You'll have time to type your answers to 4 questions.
+                </p>
+                <Button onClick={startSession} className="w-full" size="lg">Start Session</Button>
+            </Card>
+        </div>
+      );
+  }
+
   return (
     <div className="h-[calc(100vh-8rem)] flex flex-col lg:flex-row gap-6">
-      {/* Left Panel - Interview Interface */}
       <div className="flex-1 flex flex-col gap-6">
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 flex-1 flex flex-col items-center justify-center relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-1 bg-slate-100">
-             <div className="h-full bg-brand-500 transition-all duration-300" style={{ width: `${((questionIndex + 1) / questions.length) * 100}%` }}></div>
-          </div>
-          
-          <span className="text-xs font-bold tracking-wider text-slate-400 uppercase mb-4">Question {questionIndex + 1} of {questions.length}</span>
-          <h2 className="text-2xl md:text-3xl font-bold text-center text-slate-900 mb-12 max-w-2xl leading-relaxed">
-            {questions[questionIndex]}
-          </h2>
-
-          <div className="flex flex-col items-center gap-6">
-             {/* Audio Visualizer Placeholder */}
-             <div className="h-16 flex items-center gap-1">
-                {[...Array(20)].map((_, i) => (
-                  <div 
-                    key={i} 
-                    className={`w-1.5 bg-brand-500 rounded-full transition-all duration-75 ${isRecording ? 'animate-pulse' : 'h-2 bg-slate-200'}`}
-                    style={{ height: isRecording ? `${Math.random() * 40 + 10}px` : '4px' }}
-                  ></div>
-                ))}
-             </div>
-
-             <div className="text-4xl font-mono font-medium text-slate-700 tabular-nums">
-               {formatTime(timer)}
-             </div>
-
-             <button 
-                onClick={toggleRecording}
-                className={`w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 shadow-xl ${
-                  isRecording 
-                    ? 'bg-red-500 hover:bg-red-600 ring-4 ring-red-100 scale-110' 
-                    : 'bg-brand-600 hover:bg-brand-700 hover:-translate-y-1'
-                }`}
-             >
-                {isRecording ? <Square className="text-white fill-white" size={24} /> : <Mic className="text-white" size={32} />}
-             </button>
-             <p className="text-slate-500 text-sm">
-               {isRecording ? 'Recording your answer...' : 'Click microphone to start'}
-             </p>
-          </div>
-        </div>
-
-        {/* Transcript Area */}
-        <Card className="h-48 overflow-y-auto bg-slate-50">
-           <h3 className="text-xs font-bold text-slate-400 uppercase mb-2">Live Transcript</h3>
-           <p className="text-slate-700 leading-relaxed font-mono text-sm">
-             {transcript || <span className="text-slate-400 italic">Your speech will appear here...</span>}
-           </p>
-        </Card>
-      </div>
-
-      {/* Right Panel - Feedback */}
-      <div className={`w-full lg:w-96 flex flex-col transition-all duration-500 ${feedback ? 'opacity-100 translate-x-0' : 'opacity-50 lg:translate-x-4 grayscale'}`}>
-         {isProcessing ? (
-           <Card className="flex-1 flex flex-col items-center justify-center">
-             <div className="w-12 h-12 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin mb-4"></div>
-             <p className="text-slate-600 font-medium">Analyzing your response...</p>
-             <p className="text-slate-400 text-sm mt-2">Checking technical accuracy and clarity</p>
-           </Card>
-         ) : feedback ? (
-           <div className="space-y-4 h-full overflow-y-auto">
-             <Card className="text-center relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 via-yellow-500 to-green-500"></div>
-                <h3 className="text-slate-500 font-medium text-sm uppercase tracking-wide mb-2">Confidence Score</h3>
-                <div className="h-48 relative">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RadialBarChart innerRadius="60%" outerRadius="100%" data={scoreData} startAngle={180} endAngle={0} cy="70%">
-                      <RadialBar label={{ position: 'insideStart', fill: '#fff' }} background dataKey="uv" cornerRadius={10} />
-                    </RadialBarChart>
-                  </ResponsiveContainer>
-                  <div className="absolute inset-0 flex items-center justify-center pt-8">
-                     <span className="text-4xl font-bold text-slate-900">{feedback.score}</span>
-                  </div>
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 flex-1 flex flex-col relative overflow-hidden">
+          {question && (
+             <div className="w-full h-full flex flex-col">
+                <div className="absolute top-0 left-0 w-full h-1 bg-slate-100">
+                    <div className="h-full bg-brand-500 transition-all duration-300" style={{ width: `${((question.index + 1) / question.total) * 100}%` }}></div>
                 </div>
-             </Card>
+                <div className="flex justify-between items-center mb-6">
+                    <span className="text-xs font-bold tracking-wider text-slate-400 uppercase">Question {question.index + 1} of {question.total}</span>
+                    <div className="flex items-center gap-2 text-slate-500 font-mono">
+                        <Clock size={16} />
+                        {formatTime(timer)}
+                    </div>
+                </div>
+                
+                <h2 className="text-xl md:text-2xl font-bold text-slate-900 mb-6 leading-relaxed">
+                    {question.text}
+                </h2>
+                
+                <textarea 
+                    className="flex-1 w-full p-4 bg-slate-50 border border-slate-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all font-mono text-sm leading-relaxed"
+                    placeholder="Type your answer here..."
+                    value={currentAnswer}
+                    onChange={(e) => setCurrentAnswer(e.target.value)}
+                    disabled={isProcessing}
+                    autoFocus
+                />
+                
+                <div className="mt-6 flex justify-end">
+                    <Button 
+                        onClick={submitAnswer} 
+                        disabled={!currentAnswer.trim() || isProcessing}
+                        icon={<Send size={16} />}
+                        className="px-8"
+                    >
+                        {isProcessing ? 'Submitting...' : 'Submit Answer'}
+                    </Button>
+                </div>
+             </div>
+          )}
 
-             <Card title="AI Feedback" className="flex-1">
-               <p className="text-slate-600 text-sm mb-4 leading-relaxed">{feedback.summary}</p>
-               
-               <div className="space-y-4">
-                 <div>
-                   <h4 className="flex items-center text-emerald-600 font-semibold text-sm mb-2">
-                     <CheckCircle2 size={16} className="mr-2" /> Strengths
-                   </h4>
-                   <ul className="text-sm text-slate-600 space-y-1 pl-6 list-disc marker:text-emerald-300">
-                     {feedback.strengths.map((s, i) => <li key={i}>{s}</li>)}
-                   </ul>
-                 </div>
-                 
-                 <div>
-                   <h4 className="flex items-center text-amber-600 font-semibold text-sm mb-2">
-                     <AlertCircle size={16} className="mr-2" /> Areas for Improvement
-                   </h4>
-                   <ul className="text-sm text-slate-600 space-y-1 pl-6 list-disc marker:text-amber-300">
-                     {feedback.improvements.map((s, i) => <li key={i}>{s}</li>)}
-                   </ul>
-                 </div>
-               </div>
-             </Card>
-
-             <Button 
-               className="w-full" 
-               variant="outline" 
-               icon={<RefreshCw size={16} />}
-               onClick={() => {
-                 setFeedback(null);
-                 setTranscript("");
-                 setQuestionIndex((prev) => (prev + 1) % questions.length);
-               }}
-             >
-               Next Question
-             </Button>
-           </div>
-         ) : (
-            <div className="flex-1 border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center text-slate-400 p-8 text-center bg-slate-50/50">
-               <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-sm mb-4">
-                  <Play className="ml-1 text-slate-300" />
-               </div>
-               <p className="font-medium text-slate-500">Ready for feedback?</p>
-               <p className="text-sm mt-1">Record your answer to get instant AI analysis on your performance.</p>
-            </div>
-         )}
+          {!question && !feedback && (
+             <div className="flex-1 flex items-center justify-center text-slate-400 animate-pulse">Connecting to interviewer...</div>
+          )}
+        </div>
       </div>
+
+      {(feedback || isProcessing) && !question && (
+        <div className={`w-full lg:w-96 flex flex-col transition-all duration-500`}>
+             {isProcessing && !feedback ? (
+                <Card className="flex-1 flex flex-col items-center justify-center">
+                    <div className="w-12 h-12 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin mb-4"></div>
+                    <p className="text-slate-600 font-medium">Analyzing...</p>
+                </Card>
+             ) : feedback ? (
+               <div className="space-y-4 h-full overflow-y-auto">
+                 <Card className="text-center relative overflow-hidden">
+                    <h3 className="text-slate-500 font-medium text-sm uppercase tracking-wide mb-2">Confidence Score</h3>
+                    <div className="h-48 relative">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <RadialBarChart innerRadius="60%" outerRadius="100%" data={scoreData} startAngle={180} endAngle={0} cy="70%">
+                        <RadialBar label={{ position: 'insideStart', fill: '#fff' }} background dataKey="uv" cornerRadius={10} />
+                        </RadialBarChart>
+                    </ResponsiveContainer>
+                    <div className="absolute inset-0 flex items-center justify-center pt-8">
+                        <span className="text-4xl font-bold text-slate-900">{feedback.score}</span>
+                    </div>
+                    </div>
+                 </Card>
+
+                 <Card title="AI Feedback" className="flex-1">
+                <p className="text-slate-600 text-sm mb-4 leading-relaxed">{feedback.summary}</p>
+                 </Card>
+
+                 <Button 
+                    className="w-full" 
+                    variant="outline" 
+                    icon={<RefreshCw size={16} />}
+                    onClick={() => {
+                        setFeedback(null);
+                        setAnswers([]);
+                        setQuestion(null);
+                        setCurrentAnswer("");
+                    }}
+                 >
+                    Start New Session
+                 </Button>
+               </div>
+             ) : null}
+        </div>
+      )}
     </div>
   );
 };
@@ -1721,296 +2265,73 @@ export default Learning;
 ## `src/pages/LearningModule.tsx`
 
 ```tsx
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Card, Button, Badge, ProgressBar } from "../components/ui/Common";
 import {
   ArrowLeft,
-  CheckCircle2,
-  Circle,
   BookOpen,
   Code2,
-  Video,
   FileText,
-  Sparkles,
   MessageSquare,
-  UploadCloud,
-  ChevronUp,
+  CheckCircle2,
+  Circle,
+  PlayCircle
 } from "lucide-react";
-
-type Section = {
-  id: string;
-  title: string;
-  icon: React.ReactNode;
-  content: React.ReactNode;
-};
-
-const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
+import api from "../services/api";
 
 const LearningModule = () => {
   const navigate = useNavigate();
-  const { moduleId } = useParams<{ moduleId: string }>();
+  const { roadmapId, moduleId } = useParams<{ roadmapId: string; moduleId: string }>();
 
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const [activeSection, setActiveSection] = useState<string>("overview");
-  const [showChat, setShowChat] = useState(false);
+  const [module, setModule] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'content' | 'exercise'>('content');
+  const [exerciseInput, setExerciseInput] = useState("");
+  const [exerciseResult, setExerciseResult] = useState<any>(null);
 
-  const [checklist, setChecklist] = useState<Record<string, boolean>>({
-    watch: false,
-    read: true,
-    code: false,
-    exercise: false,
-  });
-
-  const progress = useMemo(() => {
-    const vals = Object.values(checklist);
-    const done = vals.filter(Boolean).length;
-    return Math.round((done / vals.length) * 100);
-  }, [checklist]);
-
-  const title = useMemo(() => {
-    const pretty = (moduleId || "module").replace(/[-_]/g, " ");
-    return pretty.replace(/\b\w/g, (m) => m.toUpperCase());
-  }, [moduleId]);
-
-  const sections: Section[] = useMemo(
-    () => [
-      {
-        id: "overview",
-        title: "Overview",
-        icon: <BookOpen size={16} className="text-slate-500" />,
-        content: (
-          <div className="space-y-4">
-            <p className="text-slate-600 leading-relaxed">
-              In this module, you’ll learn the core concepts, then reinforce them with a small hands-on exercise.
-              Use the checklist to track completion and jump between sections using the table of contents.
-            </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Estimated time</p>
-                <p className="text-lg font-bold text-slate-900 mt-1">45–60 min</p>
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Difficulty</p>
-                <p className="text-lg font-bold text-slate-900 mt-1">Intermediate</p>
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Learning goal</p>
-                <p className="text-lg font-bold text-slate-900 mt-1">Build intuition + practice</p>
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-indigo-900 to-slate-900 text-white p-5">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <Badge color="indigo">AI Hint</Badge>
-                  <h3 className="font-bold text-lg mt-2">Ask “why” before “how”</h3>
-                  <p className="text-indigo-200 text-sm mt-1">
-                    If you understand the trade-offs, implementation details become much easier to memorize.
-                  </p>
-                </div>
-                <div className="bg-white/10 p-2 rounded-lg">
-                  <Sparkles size={20} />
-                </div>
-              </div>
-            </div>
-          </div>
-        ),
-      },
-      {
-        id: "video",
-        title: "Video Lesson",
-        icon: <Video size={16} className="text-slate-500" />,
-        content: (
-          <div className="space-y-4">
-            <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-900 relative">
-              <div className="aspect-video w-full flex items-center justify-center">
-                <div className="text-center px-6">
-                  <div className="mx-auto w-14 h-14 bg-white/10 rounded-full flex items-center justify-center mb-3">
-                    <Video className="text-white" />
-                  </div>
-                  <p className="text-white font-semibold">Embedded video placeholder</p>
-                  <p className="text-white/60 text-sm mt-1">
-                    Hook up your player later; layout and styling already match the template.
-                  </p>
-                </div>
-              </div>
-              <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/60 to-transparent">
-                <div className="h-1.5 bg-white/15 rounded-full overflow-hidden">
-                  <div className="h-1.5 bg-brand-500 rounded-full w-[35%]"></div>
-                </div>
-                <div className="flex items-center justify-between mt-2 text-xs text-white/70">
-                  <span>12:10</span>
-                  <span>34:20</span>
-                </div>
-              </div>
-            </div>
-
-            <Button
-              variant="outline"
-              onClick={() => setChecklist((p) => ({ ...p, watch: !p.watch }))}
-              icon={checklist.watch ? <CheckCircle2 size={16} /> : <Circle size={16} />}
-            >
-              Mark video as {checklist.watch ? "incomplete" : "complete"}
-            </Button>
-          </div>
-        ),
-      },
-      {
-        id: "reading",
-        title: "Reading Notes",
-        icon: <FileText size={16} className="text-slate-500" />,
-        content: (
-          <div className="space-y-4">
-            <div className="prose prose-slate max-w-none">
-              <h3 className="text-slate-900">Key ideas</h3>
-              <ul className="text-slate-700">
-                <li>Focus on constraints first (time, space, correctness).</li>
-                <li>Choose the simplest approach that satisfies requirements.</li>
-                <li>Make trade-offs explicit and test assumptions early.</li>
-              </ul>
-              <h3 className="text-slate-900">Mini takeaway</h3>
-              <p className="text-slate-700">
-                Good solutions are rarely “perfect”—they are <b>appropriate</b> given the context.
-              </p>
-            </div>
-
-            <Button
-              variant="outline"
-              onClick={() => setChecklist((p) => ({ ...p, read: !p.read }))}
-              icon={checklist.read ? <CheckCircle2 size={16} /> : <Circle size={16} />}
-            >
-              Mark reading as {checklist.read ? "incomplete" : "complete"}
-            </Button>
-          </div>
-        ),
-      },
-      {
-        id: "code",
-        title: "Code Walkthrough",
-        icon: <Code2 size={16} className="text-slate-500" />,
-        content: (
-          <div className="space-y-4">
-            <p className="text-slate-600 leading-relaxed">
-              This is a styled code block matching Lumina’s brand palette and typography.
-              Swap in a real editor later if needed.
-            </p>
-
-            <div className="rounded-xl border border-slate-200 overflow-hidden">
-              <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500">Example</span>
-                <Badge color="gray">TypeScript</Badge>
-              </div>
-              <pre className="p-4 bg-slate-900 text-slate-100 text-sm overflow-x-auto font-mono leading-relaxed">
-{`type Result<T> = { ok: true; value: T } | { ok: false; error: string };
-
-export function safeParseNumber(input: string): Result<number> {
-  const n = Number(input);
-  if (Number.isNaN(n)) return { ok: false, error: "Not a number" };
-  return { ok: true, value: n };
-}`}
-              </pre>
-            </div>
-
-            <Button
-              variant="outline"
-              onClick={() => setChecklist((p) => ({ ...p, code: !p.code }))}
-              icon={checklist.code ? <CheckCircle2 size={16} /> : <Circle size={16} />}
-            >
-              Mark code walkthrough as {checklist.code ? "incomplete" : "complete"}
-            </Button>
-          </div>
-        ),
-      },
-      {
-        id: "exercise",
-        title: "Exercise",
-        icon: <BookOpen size={16} className="text-slate-500" />,
-        content: (
-          <div className="space-y-4">
-            <Card title="Task: Implement a small helper" className="bg-slate-50">
-              <p className="text-slate-700 leading-relaxed">
-                Create a helper that validates input and returns a typed result. Include one unit test case.
-              </p>
-
-              <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div className="rounded-xl border border-slate-200 bg-white p-4">
-                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Requirements</p>
-                  <ul className="mt-2 text-sm text-slate-700 list-disc pl-5 space-y-1">
-                    <li>Return a discriminated union result</li>
-                    <li>Handle invalid input</li>
-                    <li>Include one example test</li>
-                  </ul>
-                </div>
-
-                <div className="rounded-xl border-2 border-dashed border-slate-200 bg-white p-4 flex items-center justify-center text-center">
-                  <div className="max-w-xs">
-                    <div className="mx-auto w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mb-3">
-                      <UploadCloud className="text-slate-400" />
-                    </div>
-                    <p className="text-sm font-semibold text-slate-700">Submission placeholder</p>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Plug in drag & drop upload or a form later—this keeps the UI consistent.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </Card>
-
-            <Button
-              onClick={() => setChecklist((p) => ({ ...p, exercise: !p.exercise }))}
-              icon={checklist.exercise ? <CheckCircle2 size={16} /> : <Circle size={16} />}
-            >
-              Mark exercise as {checklist.exercise ? "incomplete" : "complete"}
-            </Button>
-          </div>
-        ),
-      },
-    ],
-    [checklist]
-  );
-
-  // Smooth scroll to section + active section highlight
   useEffect(() => {
-    const root = containerRef.current;
-    if (!root) return;
+    if (roadmapId && moduleId) {
+      fetchModule();
+    }
+  }, [roadmapId, moduleId]);
 
-    const elements = sections.map((s) => document.getElementById(s.id)).filter(Boolean) as HTMLElement[];
-    if (elements.length === 0) return;
-
-    const obs = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => (b.intersectionRatio || 0) - (a.intersectionRatio || 0))[0];
-        if (visible?.target?.id) setActiveSection(visible.target.id);
-      },
-      { root: null, threshold: [0.2, 0.35, 0.5] }
-    );
-
-    elements.forEach((el) => obs.observe(el));
-    return () => obs.disconnect();
-  }, [sections]);
-
-  const onJump = (id: string) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.scrollIntoView({ behavior: "smooth", block: "start" });
+  const fetchModule = async () => {
+    try {
+        const res = await api.get(`/roadmaps/${roadmapId}/modules/${moduleId}`);
+        if (res.data.success) {
+            setModule(res.data.data);
+        }
+    } catch (error) {
+        console.error("Failed to load module", error);
+    } finally {
+        setLoading(false);
+    }
   };
 
-  const checklistItems = useMemo(
-    () => [
-      { key: "read", label: "Read notes" },
-      { key: "watch", label: "Watch lesson" },
-      { key: "code", label: "Follow code walkthrough" },
-      { key: "exercise", label: "Complete exercise" },
-    ],
-    []
-  );
+  const submitExercise = async () => {
+      // Assuming module has exercises, pick the first one or iterate
+      // For now, simple mock submission if no real exercise ID
+      const exerciseId = module?.exercises?.[0]?.exercise_id;
+      if (!exerciseId) {
+          alert("No exercise found for this module.");
+          return;
+      }
+      try {
+          const res = await api.post(`/exercises/${exerciseId}/submit`, {
+              code_answer: exerciseInput
+          });
+          setExerciseResult(res.data);
+      } catch (e) {
+          console.error("Exercise submission failed", e);
+      }
+  };
+
+  if (loading) return <div className="p-12 text-center text-slate-500">Loading module content...</div>;
+  if (!module) return <div className="p-12 text-center text-red-500">Module not found.</div>;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6" ref={containerRef}>
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       {/* Main content */}
       <div className="lg:col-span-8 xl:col-span-9 space-y-6">
         {/* Top bar */}
@@ -2018,190 +2339,94 @@ export function safeParseNumber(input: string): Result<number> {
           <div>
             <button
               className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-brand-600 transition-colors"
-              onClick={() => navigate("/learning")}
+              onClick={() => navigate(`/roadmaps/${roadmapId}`)}
             >
               <ArrowLeft size={16} />
-              Back to My Learning
+              Back to Roadmap
             </button>
-
-            <h1 className="text-2xl font-bold text-slate-900 mt-2">{title}</h1>
+            <h1 className="text-2xl font-bold text-slate-900 mt-2">{module.title}</h1>
             <div className="flex flex-wrap items-center gap-2 mt-2">
-              <Badge color="gray">Module</Badge>
-              <Badge color="blue">Interactive</Badge>
-              <Badge color="indigo">Brand: Lumina</Badge>
+               <Badge color="blue">Module</Badge>
+               {module.estimated_hours && <Badge color="gray">{module.estimated_hours}h</Badge>}
             </div>
-          </div>
-
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              icon={<MessageSquare size={16} />}
-              onClick={() => setShowChat((s) => !s)}
-            >
-              {showChat ? "Hide" : "AI Chat"}
-            </Button>
-            <Button onClick={() => onJump("exercise")}>Go to Exercise</Button>
           </div>
         </div>
 
-        {/* Progress strip */}
-        <Card className="p-0 overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-brand-50 flex items-center justify-center ring-1 ring-brand-200">
-                <BookOpen className="text-brand-600" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-slate-900">Module progress</p>
-                <p className="text-xs text-slate-500">Complete checklist items to finish this module.</p>
-              </div>
-            </div>
-            <div className="text-sm font-bold text-slate-900 tabular-nums">{progress}%</div>
-          </div>
-          <div className="p-6">
-            <ProgressBar progress={progress} height="h-2.5" />
-          </div>
-        </Card>
-
-        {/* Sections */}
-        <div className="space-y-6">
-          {sections.map((s) => (
-            <div
-              key={s.id}
-              id={s.id}
-              className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden"
-            >
-              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  {s.icon}
-                  <h2 className="text-base font-semibold text-slate-900">{s.title}</h2>
-                </div>
-                <div className="h-1 w-24 bg-gradient-to-r from-brand-500 to-indigo-500 rounded-full opacity-60" />
-              </div>
-              <div className="p-6">{s.content}</div>
-            </div>
-          ))}
+        {/* Content Tabs */}
+        <div className="border-b border-slate-200">
+            <nav className="-mb-px flex space-x-8">
+                <button
+                    onClick={() => setActiveTab('content')}
+                    className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
+                        activeTab === 'content'
+                        ? 'border-brand-500 text-brand-600'
+                        : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                    }`}
+                >
+                    <BookOpen size={16} className="inline mr-2" />
+                    Lesson Content
+                </button>
+                <button
+                    onClick={() => setActiveTab('exercise')}
+                    className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm ${
+                        activeTab === 'exercise'
+                        ? 'border-brand-500 text-brand-600'
+                        : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                    }`}
+                >
+                    <Code2 size={16} className="inline mr-2" />
+                    Exercises
+                </button>
+            </nav>
         </div>
 
-        {/* Back to top */}
-        <div className="flex justify-center pt-2">
-          <Button variant="ghost" icon={<ChevronUp size={16} />} onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
-            Back to top
-          </Button>
-        </div>
+        {activeTab === 'content' && (
+            <Card className="prose prose-slate max-w-none">
+                <div dangerouslySetInnerHTML={{ __html: module.content || '<p>No content available.</p>' }} />
+                {/* Fallback if content is empty but description exists */}
+                {!module.content && module.description && <p>{module.description}</p>}
+            </Card>
+        )}
+
+        {activeTab === 'exercise' && (
+            <div className="space-y-6">
+                {module.exercises && module.exercises.length > 0 ? (
+                    module.exercises.map((ex: any, i: number) => (
+                        <Card key={ex.exercise_id || i} title={ex.title || `Exercise ${i+1}`}>
+                             <p className="mb-4 text-slate-700">{ex.prompt || "Solve the problem below."}</p>
+                             <textarea 
+                                className="w-full h-48 p-4 bg-slate-900 text-slate-100 font-mono text-sm rounded-lg mb-4"
+                                placeholder="// Write your solution code here..."
+                                value={exerciseInput}
+                                onChange={(e) => setExerciseInput(e.target.value)}
+                             />
+                             <div className="flex justify-between items-center">
+                                 <Button onClick={submitExercise}>Run Code</Button>
+                                 {exerciseResult && (
+                                     <span className={exerciseResult.success ? "text-green-600" : "text-red-600"}>
+                                         {exerciseResult.success ? "Passed!" : "Failed"}
+                                     </span>
+                                 )}
+                             </div>
+                        </Card>
+                    ))
+                ) : (
+                    <Card>
+                        <p className="text-slate-500 text-center">No exercises available for this module yet.</p>
+                    </Card>
+                )}
+            </div>
+        )}
       </div>
 
       {/* Sidebar */}
       <div className="lg:col-span-4 xl:col-span-3 space-y-6">
-        {/* TOC */}
-        <Card title="Contents">
-          <div className="space-y-1">
-            {sections.map((s) => {
-              const isActive = activeSection === s.id;
-              return (
-                <button
-                  key={s.id}
-                  onClick={() => onJump(s.id)}
-                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
-                    isActive
-                      ? "bg-brand-50 text-brand-600 ring-1 ring-brand-200"
-                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                  }`}
-                  aria-current={isActive ? "page" : undefined}
-                >
-                  <span className="flex-none">{s.icon}</span>
-                  <span className="truncate">{s.title}</span>
-                </button>
-              );
-            })}
-          </div>
-        </Card>
-
-        {/* Checklist */}
-        <Card title="Checklist">
-          <div className="space-y-2">
-            {checklistItems.map((it) => {
-              const checked = !!checklist[it.key];
-              return (
-                <button
-                  key={it.key}
-                  onClick={() => setChecklist((p) => ({ ...p, [it.key]: !p[it.key] }))}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-colors"
-                >
-                  <span className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-                    {checked ? (
-                      <CheckCircle2 size={18} className="text-emerald-600" />
-                    ) : (
-                      <Circle size={18} className="text-slate-300" />
-                    )}
-                    {it.label}
-                  </span>
-                  <span className={`text-xs font-bold ${checked ? "text-emerald-600" : "text-slate-400"}`}>
-                    {checked ? "Done" : "Todo"}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="mt-4 rounded-xl bg-slate-50 border border-slate-200 p-4">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Tip</p>
-            <p className="text-sm text-slate-700 mt-1">
-              Use the TOC to jump between sections and keep your flow.
-            </p>
-          </div>
-        </Card>
-
-        {/* AI chat panel placeholder */}
-        {showChat ? (
-          <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-indigo-900 to-slate-900 text-white p-5 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <Badge color="indigo">AI Assistant</Badge>
-                <h3 className="font-bold text-lg mt-2">Ask about this module</h3>
-                <p className="text-indigo-200 text-sm mt-1">
-                  This is a UI placeholder. Wire it to your assistant endpoint later.
-                </p>
-              </div>
-              <div className="bg-white/10 p-2 rounded-lg">
-                <Sparkles size={20} />
-              </div>
-            </div>
-
-            <div className="mt-4 rounded-xl bg-white/10 border border-white/10 p-3 text-sm text-white/80">
-              Try: “Summarize the key trade-offs from the reading notes.”
-            </div>
-
-            <Button
-              size="sm"
-              className="mt-4 bg-white text-indigo-900 hover:bg-indigo-50 border-none"
-              onClick={() => setShowChat(false)}
-            >
-              Close
-            </Button>
-          </div>
-        ) : (
-          <div className="border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50 p-6 text-center text-slate-500">
-            <div className="mx-auto w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm mb-3">
-              <MessageSquare className="text-slate-300" />
-            </div>
-            <p className="font-semibold">Need help?</p>
-            <p className="text-sm mt-1">Toggle AI Chat for contextual guidance.</p>
-          </div>
-        )}
-
-        {/* Sticky action bar on mobile */}
-        <div className="lg:hidden sticky bottom-3">
-          <div className="bg-white/90 backdrop-blur-md border border-slate-200 rounded-xl p-3 shadow-lg flex items-center justify-between">
-            <div className="min-w-0">
-              <p className="text-xs text-slate-500">Progress</p>
-              <p className="text-sm font-bold text-slate-900 tabular-nums">{clamp(progress, 0, 100)}%</p>
-            </div>
-            <Button size="sm" onClick={() => onJump("exercise")}>
-              Continue
-            </Button>
-          </div>
-        </div>
+         <Card title="Module Info">
+             <p className="text-sm text-slate-600 mb-4">{module.description}</p>
+             <Button variant="outline" className="w-full" onClick={() => setActiveTab(activeTab === 'content' ? 'exercise' : 'content')}>
+                 {activeTab === 'content' ? 'Go to Exercises' : 'Back to Lesson'}
+             </Button>
+         </Card>
       </div>
     </div>
   );
@@ -2215,23 +2440,32 @@ export default LearningModule;
 
 ```tsx
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button, Input, Card } from '../components/ui/Common';
-import { CheckCircle2 } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Button, Input } from '../components/ui/Common';
+import { CheckCircle2, AlertCircle } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const Login = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
-  const [isRegister, setIsRegister] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
+    setError('');
+    
+    try {
+      await login({ email, password });
       navigate('/dashboard');
-    }, 1500);
+    } catch (err: any) {
+      setError(err?.formattedMessage || err?.response?.data?.error || 'Login failed. Please check your credentials.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -2244,20 +2478,38 @@ const Login = () => {
               L
             </div>
             <h2 className="text-3xl font-bold text-slate-900 tracking-tight">
-              {isRegister ? 'Create your account' : 'Welcome back'}
+              Welcome back
             </h2>
             <p className="mt-2 text-slate-500">
-              {isRegister ? 'Start your learning journey today.' : 'Please enter your details to sign in.'}
+              Please enter your details to sign in.
             </p>
           </div>
 
+          {error && (
+            <div className="p-4 bg-red-50 text-red-600 rounded-lg text-sm flex items-center gap-2">
+              <AlertCircle size={16} />
+              {error}
+            </div>
+          )}
+
           <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
             <div className="space-y-4">
-              {isRegister && (
-                 <Input label="Full Name" type="text" placeholder="John Doe" required />
-              )}
-              <Input label="Email address" type="email" placeholder="john@example.com" required />
-              <Input label="Password" type="password" placeholder="••••••••" required />
+              <Input 
+                label="Email address" 
+                type="email" 
+                placeholder="john@example.com" 
+                required 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+              <Input 
+                label="Password" 
+                type="password" 
+                placeholder="••••••••" 
+                required 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
             </div>
 
             <div className="flex items-center justify-between">
@@ -2267,36 +2519,26 @@ const Login = () => {
                   Remember me
                 </label>
               </div>
-              {!isRegister && (
-                <a href="#" className="text-sm font-medium text-brand-600 hover:text-brand-500">
-                  Forgot password?
-                </a>
-              )}
+              <a href="#" className="text-sm font-medium text-brand-600 hover:text-brand-500">
+                Forgot password?
+              </a>
             </div>
 
             <Button type="submit" variant="primary" className="w-full py-3" isLoading={isLoading}>
-              {isRegister ? 'Sign up' : 'Sign in'}
+              Sign in
             </Button>
             
-            <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200"></div></div>
-                <div className="relative flex justify-center text-sm"><span className="px-2 bg-slate-50 text-slate-500">Or continue with</span></div>
-            </div>
 
-             <div className="grid grid-cols-2 gap-3">
-                <Button type="button" variant="outline" className="w-full">Google</Button>
-                <Button type="button" variant="outline" className="w-full">GitHub</Button>
-             </div>
           </form>
 
           <p className="text-center text-sm text-slate-600">
-            {isRegister ? 'Already have an account?' : 'Don\'t have an account?'}
-            <button 
-              onClick={() => setIsRegister(!isRegister)}
+            Don't have an account?
+            <Link 
+              to="/register"
               className="ml-1 font-semibold text-brand-600 hover:text-brand-500 focus:outline-none focus:underline"
             >
-              {isRegister ? 'Sign in' : 'Sign up'}
-            </button>
+              Sign up
+            </Link>
           </p>
         </div>
       </div>
@@ -2312,7 +2554,7 @@ const Login = () => {
         <div className="relative z-20 max-w-lg px-8 text-center text-white">
             <h1 className="text-4xl font-bold mb-6 leading-tight">Master New Skills with AI-Powered Roadmaps</h1>
             <p className="text-lg text-indigo-100 mb-8 leading-relaxed">
-                Join thousands of developers and designers accelerating their careers with Lumina's adaptive learning paths.
+                Join thousands of developers and designers accelerating their careers with SkillSync's adaptive learning paths.
             </p>
             <div className="space-y-4">
                  {[
@@ -2339,26 +2581,222 @@ export default Login;
 
 ```
 
+## `src/pages/Register.tsx`
+
+```tsx
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { Button, Input, Card } from '../components/ui/Common';
+import { UserPlus, Mail, Lock, User, AlertCircle } from 'lucide-react';
+
+const Register = () => {
+  const [formData, setFormData] = useState({
+    full_name: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
+  });
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const { register } = useAuth();
+  const navigate = useNavigate();
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setError('');
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords don't match");
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      await register({
+        full_name: formData.full_name,
+        email: formData.email,
+        password: formData.password
+      });
+      navigate('/dashboard');
+    } catch (err: any) {
+      setError(err?.response?.data?.error || 'Registration failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-brand-500 text-white mb-4 shadow-lg shadow-brand-500/30">
+            <span className="text-xl font-bold">L</span>
+          </div>
+          <h1 className="text-2xl font-bold text-slate-900">Create Account</h1>
+          <p className="text-slate-500 mt-2">Join SkillSync Learning today</p>
+        </div>
+
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-lg text-sm flex items-center gap-2">
+            <AlertCircle size={16} />
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="relative">
+             <User className="absolute left-3 top-9 text-slate-400" size={18} />
+             <Input 
+               label="Full Name" 
+               type="text" 
+               name="full_name"
+               required
+               placeholder="John Doe"
+               className="pl-10"
+               value={formData.full_name}
+               onChange={handleChange}
+             />
+          </div>
+
+          <div className="relative">
+            <Mail className="absolute left-3 top-9 text-slate-400" size={18} />
+            <Input 
+              label="Email Address" 
+              type="email" 
+              name="email"
+              required
+              placeholder="you@example.com"
+              className="pl-10"
+              value={formData.email}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div className="relative">
+            <Lock className="absolute left-3 top-9 text-slate-400" size={18} />
+            <Input 
+              label="Password" 
+              type="password" 
+              name="password"
+              required
+              placeholder="••••••••"
+              className="pl-10"
+              value={formData.password}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div className="relative">
+            <Lock className="absolute left-3 top-9 text-slate-400" size={18} />
+            <Input 
+              label="Confirm Password" 
+              type="password" 
+              name="confirmPassword"
+              required
+              placeholder="••••••••"
+              className="pl-10"
+              value={formData.confirmPassword}
+              onChange={handleChange}
+            />
+          </div>
+
+          <Button 
+            type="submit" 
+            className="w-full mt-2" 
+            isLoading={isLoading}
+            icon={<UserPlus size={18} />}
+          >
+            Create Account
+          </Button>
+        </form>
+
+        <div className="mt-6 text-center text-sm text-slate-500">
+          Already have an account?{' '}
+          <Link to="/login" className="text-brand-600 hover:text-brand-700 font-medium hover:underline">
+            Sign in
+          </Link>
+        </div>
+      </Card>
+    </div>
+  );
+};
+
+export default Register;
+
+```
+
 ## `src/pages/RoadmapDetail.tsx`
 
 ```tsx
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Button, ProgressBar } from '../components/ui/Common';
-import { CheckCircle2, Circle, Lock, PlayCircle, FileText, Award, ChevronDown } from 'lucide-react';
+import { CheckCircle2, Lock, PlayCircle, BookOpen, Clock } from 'lucide-react';
+import api from '../services/api';
 
 const RoadmapDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const modules = [
-    { id: '1', title: 'Internet Fundamentals', status: 'completed', duration: '45m', type: 'video' },
-    { id: '2', title: 'HTML & CSS Basics', status: 'completed', duration: '2h 15m', type: 'project' },
-    { id: '3', title: 'JavaScript Syntax', status: 'active', duration: '1h 30m', type: 'code' },
-    { id: '4', title: 'DOM Manipulation', status: 'locked', duration: '1h', type: 'video' },
-    { id: '5', title: 'Async JavaScript', status: 'locked', duration: '2h', type: 'code' },
-    { id: '6', title: 'React Ecosystem', status: 'locked', duration: '4h', type: 'project' },
-  ];
+  const [roadmap, setRoadmap] = useState<any>(null);
+  const [progress, setProgress] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (id) {
+      loadData();
+    }
+  }, [id]);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      // Parallel fetch: Roadmap Definition + User Progress
+      const [roadmapRes, progressRes] = await Promise.all([
+        api.get(`/roadmaps/${id}`),
+        api.get(`/progress/roadmaps/${id}`).catch(err => ({ data: { success: false, data: null } })) // Allow progress fetch to fail (e.g. not enrolled)
+      ]);
+
+      if (roadmapRes.data.success) {
+        setRoadmap(roadmapRes.data.data);
+      }
+      
+      if (progressRes.data?.success) {
+        setProgress(progressRes.data.data);
+      }
+    } catch (error) {
+      console.error("Failed to load roadmap data", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) return <div className="p-12 text-center text-slate-500">Loading roadmap...</div>;
+  if (!roadmap) return <div className="p-12 text-center text-red-500">Roadmap not found or failed to load.</div>;
+
+  // Merge Data
+  const modules = roadmap.modules || [];
+  const progressMap = new Map();
+  if (progress && progress.modules) {
+    progress.modules.forEach((pm: any) => progressMap.set(pm.module_id, pm));
+  }
+
+  // Calculate completion
+  const completionPercentage = progress?.overall_progress || 0;
+  const isEnrolled = !!progress;
+
+  const handleEnroll = async () => {
+    try {
+      await api.post(`/roadmaps/${id}/enroll`);
+      loadData(); // Reload to get progress structure
+    } catch (e) {
+      console.error("Enrollment failed", e);
+    }
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -2367,51 +2805,77 @@ const RoadmapDetail = () => {
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
            <div className="h-48 bg-gradient-to-r from-brand-600 to-indigo-900 relative p-8 flex flex-col justify-end">
               <div className="absolute top-0 right-0 p-32 bg-white/5 rounded-full blur-3xl -mr-16 -mt-16"></div>
-              <h1 className="text-3xl font-bold text-white relative z-10 capitalize">{id?.replace('-', ' ')} Roadmap</h1>
-              <p className="text-indigo-100 relative z-10 mt-2">Master the modern stack from scratch.</p>
+              <h1 className="text-3xl font-bold text-white relative z-10 capitalize">{roadmap.title}</h1>
+              <p className="text-indigo-100 relative z-10 mt-2">{roadmap.description || 'Master this skill path.'}</p>
            </div>
+           
            <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                  <h2 className="text-lg font-bold text-slate-900">Course Content</h2>
-                 <span className="text-sm text-slate-500">{modules.filter(m => m.status === 'completed').length} / {modules.length} Completed</span>
+                 {isEnrolled ? (
+                    <span className="text-sm text-slate-500">{progress?.modules?.filter((m: any) => m.status === 'completed').length || 0} / {modules.length} Completed</span>
+                 ) : (
+                    <span className="text-sm text-slate-500">{modules.length} Modules</span>
+                 )}
               </div>
               
               <div className="space-y-3">
-                 {modules.map((module, idx) => (
-                    <div 
-                      key={module.id} 
-                      onClick={() => module.status !== 'locked' && navigate(`/learning/${module.id}`)}
-                      className={`group border rounded-lg p-4 flex items-center gap-4 transition-all ${
-                        module.status === 'locked' 
-                          ? 'bg-slate-50 border-slate-200 opacity-70 cursor-not-allowed' 
-                          : 'bg-white border-slate-200 hover:border-brand-300 hover:shadow-md cursor-pointer'
-                      } ${module.status === 'active' ? 'ring-2 ring-brand-100 border-brand-500' : ''}`}
-                    >
-                       <div className="flex-shrink-0">
-                          {module.status === 'completed' ? (
-                            <CheckCircle2 className="text-emerald-500 w-6 h-6" />
-                          ) : module.status === 'locked' ? (
-                            <Lock className="text-slate-400 w-6 h-6" />
-                          ) : (
-                            <div className="w-6 h-6 rounded-full border-2 border-brand-500 flex items-center justify-center">
-                               <div className="w-2.5 h-2.5 rounded-full bg-brand-500 animate-pulse"></div>
-                            </div>
-                          )}
-                       </div>
-                       <div className="flex-1">
-                          <h3 className={`font-semibold ${module.status === 'active' ? 'text-brand-700' : 'text-slate-800'}`}>
-                            {idx + 1}. {module.title}
-                          </h3>
-                          <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
-                             <span className="flex items-center gap-1"><PlayCircle size={12} /> {module.duration}</span>
-                             <span className="flex items-center gap-1"><FileText size={12} /> {module.type}</span>
-                          </div>
-                       </div>
-                       {module.status === 'active' && (
-                         <Button size="sm">Continue</Button>
-                       )}
-                    </div>
-                 ))}
+                 {modules.map((module: any, idx: number) => {
+                    const p = progressMap.get(module.module_id);
+                    const status = p?.status || (isEnrolled ? 'not_started' : 'locked');
+                    const isLocked = !isEnrolled; // Simple logic: fail to view if not enrolled? Or open view but track status? 
+                    // Better: If not enrolled, show as locked or just 'view'. 
+                    // But typically you enroll to track.
+                    
+                    return (
+                        <div 
+                          key={module.module_id} 
+                          onClick={() => {
+                              if (isEnrolled) {
+                                module.status !== 'locked' && navigate(`/roadmaps/${id}/modules/${module.module_id}`);
+                              } else {
+                                handleEnroll(); // Or prompt
+                              }
+                          }}
+                          className={`group border rounded-lg p-4 flex items-center gap-4 transition-all ${
+                            isLocked 
+                              ? 'bg-slate-50 border-slate-200 cursor-pointer hover:border-brand-300' 
+                              : 'bg-white border-slate-200 hover:border-brand-300 hover:shadow-md cursor-pointer'
+                          } ${status === 'in_progress' ? 'ring-2 ring-brand-100 border-brand-500' : ''}`}
+                        >
+                           <div className="flex-shrink-0">
+                              {status === 'completed' ? (
+                                <CheckCircle2 className="text-emerald-500 w-6 h-6" />
+                              ) : status === 'locked' || !isEnrolled ? (
+                                <Lock className="text-slate-400 w-6 h-6" />
+                              ) : status === 'in_progress' ? (
+                                <div className="w-6 h-6 rounded-full border-2 border-brand-500 flex items-center justify-center">
+                                   <div className="w-2.5 h-2.5 rounded-full bg-brand-500 animate-pulse"></div>
+                                </div>
+                              ) : (
+                                <div className="w-6 h-6 rounded-full border-2 border-slate-300"></div>
+                              )}
+                           </div>
+                           <div className="flex-1">
+                              <h3 className={`font-semibold ${status === 'in_progress' ? 'text-brand-700' : 'text-slate-800'}`}>
+                                {idx + 1}. {module.title}
+                              </h3>
+                              <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+                                 {module.estimated_hours && (
+                                     <span className="flex items-center gap-1"><Clock size={12} /> {module.estimated_hours}h</span>
+                                 )}
+                                 <span className="flex items-center gap-1"><BookOpen size={12} /> Module</span>
+                              </div>
+                           </div>
+                           {status === 'in_progress' && (
+                             <Button size="sm">Continue</Button>
+                           )}
+                           {!isEnrolled && (
+                             <Button size="sm" variant="outline">Start</Button>
+                           )}
+                        </div>
+                    );
+                 })}
               </div>
            </div>
         </div>
@@ -2420,31 +2884,36 @@ const RoadmapDetail = () => {
       {/* Sidebar - Progress & Info */}
       <div className="space-y-6">
         <Card title="Your Progress">
-           <div className="flex items-center justify-center py-6">
-              <div className="relative w-32 h-32">
-                 <svg className="w-full h-full transform -rotate-90">
-                    <circle cx="64" cy="64" r="56" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-100" />
-                    <circle cx="64" cy="64" r="56" stroke="currentColor" strokeWidth="8" fill="transparent" strokeDasharray={351.86} strokeDashoffset={351.86 * (1 - 0.35)} className="text-brand-500 transition-all duration-1000" />
-                 </svg>
-                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-3xl font-bold text-slate-900">35%</span>
-                 </div>
-              </div>
-           </div>
-           <p className="text-center text-sm text-slate-600 mb-6">Keep it up! You're on track to finish by next month.</p>
-           <Button className="w-full" variant="secondary">Download Syllabus</Button>
+           {isEnrolled ? (
+               <>
+               <div className="flex items-center justify-center py-6">
+                  <div className="relative w-32 h-32">
+                     <svg className="w-full h-full transform -rotate-90">
+                        <circle cx="64" cy="64" r="56" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-100" />
+                        <circle 
+                            cx="64" cy="64" r="56" 
+                            stroke="currentColor" strokeWidth="8" fill="transparent" 
+                            strokeDasharray={351.86} 
+                            strokeDashoffset={351.86 * (1 - (completionPercentage / 100))} 
+                            className="text-brand-500 transition-all duration-1000" 
+                        />
+                     </svg>
+                     <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span className="text-3xl font-bold text-slate-900">{Math.round(completionPercentage)}%</span>
+                     </div>
+                  </div>
+               </div>
+               <p className="text-center text-sm text-slate-600 mb-6">Keep it up! You're on track.</p>
+               </>
+           ) : (
+               <div className="text-center py-6">
+                   <p className="text-slate-600 mb-4">Join this roadmap to track your progress and earn a certificate.</p>
+                   <Button className="w-full" onClick={handleEnroll}>Enroll Now</Button>
+               </div>
+           )}
         </Card>
 
-        <Card title="Certificate">
-           <div className="bg-slate-50 rounded-lg p-4 border border-dashed border-slate-300 text-center">
-              <div className="w-12 h-12 bg-slate-200 rounded-full flex items-center justify-center mx-auto mb-3 text-slate-400">
-                 <Award size={24} />
-              </div>
-              <p className="text-sm font-medium text-slate-900">Locked</p>
-              <p className="text-xs text-slate-500 mt-1">Complete all modules to earn your certificate of completion.</p>
-           </div>
-        </Card>
-
+        {/* AI Tutor Card - Kept as per user preference (Help button kept, so this is consistent) */}
         <div className="bg-indigo-900 rounded-xl p-6 text-white relative overflow-hidden">
            <div className="relative z-10">
              <h3 className="font-bold text-lg">Need Help?</h3>
@@ -2452,17 +2921,13 @@ const RoadmapDetail = () => {
              <Button size="sm" className="bg-white text-indigo-900 border-none hover:bg-indigo-50">Ask AI Tutor</Button>
            </div>
            <div className="absolute -bottom-4 -right-4 text-indigo-800 opacity-50">
-             <BookOpenIcon size={120} />
+             <BookOpen size={120} />
            </div>
         </div>
       </div>
     </div>
   );
 };
-
-const BookOpenIcon = ({size}: {size: number}) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-)
 
 export default RoadmapDetail;
 
@@ -2474,19 +2939,39 @@ export default RoadmapDetail;
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, Button, Badge, ProgressBar } from '../components/ui/Common';
-import { Search, Filter, Book, CheckCircle, Code } from 'lucide-react';
+import { Search, Filter, Book, CheckCircle, Code, Plus } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const Roadmaps = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
-  const roadmaps = [
-    { id: 'frontend', title: 'Frontend Developer', category: 'Frontend', progress: 45, total: 24, completed: 11, color: 'blue', icon: <Code /> },
-    { id: 'backend', title: 'Backend Developer', category: 'Backend', progress: 10, total: 30, completed: 3, color: 'green', icon: <Book /> },
-    { id: 'datascience', title: 'Data Scientist', category: 'Data Science', progress: 0, total: 18, completed: 0, color: 'purple', icon: <Filter /> },
-    { id: 'uiux', title: 'UI/UX Designer', category: 'Design', progress: 80, total: 15, completed: 12, color: 'pink', icon: <CheckCircle /> },
-    { id: 'devops', title: 'DevOps Engineer', category: 'DevOps', progress: 5, total: 25, completed: 1, color: 'orange', icon: <Code /> },
-    { id: 'mobile', title: 'Mobile Developer', category: 'Mobile', progress: 0, total: 20, completed: 0, color: 'indigo', icon: <Code /> },
-  ];
+  const [roadmaps, setRoadmaps] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const fetchRoadmaps = async () => {
+      try {
+        const response = await import('../services/api').then(m => m.default.get('/roadmaps'));
+        setRoadmaps(response.data.data);
+      } catch (e) {
+        console.error("Failed to fetch roadmaps", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchRoadmaps();
+  }, []);
+
+  const getCategoryColor = (cat: string) => {
+     const map: any = { 'Frontend': 'blue', 'Backend': 'green', 'DevOps': 'orange', 'Design': 'pink', 'Data Science': 'purple' };
+     return map[cat] || 'indigo';
+  };
+  
+  const getIcon = (cat: string) => {
+      // Return appropriate icon
+      return <Book />;
+  };
 
   return (
     <div className="space-y-6">
@@ -2504,43 +2989,40 @@ const Roadmaps = () => {
             />
           </div>
           <Button variant="outline" icon={<Filter size={18} />}>Filter</Button>
+          {(user?.role === 'admin' || user?.role === 'creator') && (
+            <Button icon={<Plus size={18} />} onClick={() => navigate('/admin')}>Create Path</Button>
+          )}
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {roadmaps.map((map) => (
+        {loading ? <p>Loading roadmaps...</p> : roadmaps.map((map) => (
           <div 
-            key={map.id}
-            onClick={() => navigate(`/roadmaps/${map.id}`)}
+            key={map.roadmap_id}
+            onClick={() => navigate(`/roadmaps/${map.roadmap_id}`)}
             className="group relative bg-white rounded-xl border border-slate-200 p-6 hover:shadow-lg transition-all duration-300 cursor-pointer hover:-translate-y-1"
           >
-            <div className={`w-12 h-12 rounded-lg bg-${map.color}-50 text-${map.color}-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
-              {map.icon}
+            <div className={`w-12 h-12 rounded-lg bg-${getCategoryColor(map.category)}-50 text-${getCategoryColor(map.category)}-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+              {getIcon(map.category)}
             </div>
             
             <div className="mb-4">
-              <Badge color={map.progress === 0 ? 'gray' : map.progress === 100 ? 'green' : 'blue'}>
+              <Badge color="blue">
                 {map.category}
               </Badge>
               <h3 className="text-xl font-bold text-slate-900 mt-2 group-hover:text-brand-600 transition-colors">{map.title}</h3>
-              <p className="text-slate-500 text-sm mt-1">{map.total} Modules • Est. 3 Months</p>
+              <p className="text-slate-500 text-sm mt-1">{map.module_count || 0} Modules • Est. {map.module_count ? Math.ceil(map.module_count * 1.5) : 0} Hours</p>
             </div>
 
             <div className="space-y-2">
               <div className="flex justify-between text-xs font-medium text-slate-600">
-                <span>{map.progress}% Completed</span>
-                <span>{map.completed}/{map.total}</span>
+                <span>0% Completed</span>
+                <span>0/{map.module_count || 0}</span>
               </div>
-              <ProgressBar progress={map.progress} />
+              <ProgressBar progress={0} />
             </div>
 
             <div className="mt-6 pt-4 border-t border-slate-100 flex justify-between items-center">
-              <div className="flex -space-x-2">
-                 {[1,2,3].map(i => (
-                    <img key={i} className="w-6 h-6 rounded-full border-2 border-white" src={`https://picsum.photos/30/30?random=${i+10}`} alt="User" />
-                 ))}
-                 <div className="w-6 h-6 rounded-full border-2 border-white bg-slate-100 flex items-center justify-center text-[10px] text-slate-600 font-bold">+2k</div>
-              </div>
               <span className="text-sm font-semibold text-brand-600 group-hover:translate-x-1 transition-transform">Start Path &rarr;</span>
             </div>
           </div>
@@ -2551,6 +3033,180 @@ const Roadmaps = () => {
 };
 
 export default Roadmaps;
+
+```
+
+## `src/pages/Settings.tsx`
+
+```tsx
+import React, { useState } from 'react';
+import { Card, Button, Input } from '../components/ui/Common';
+import { Lock, User, Bell, Shield, Save } from 'lucide-react';
+import api from '../services/api';
+
+const Settings = () => {
+  const [passwordData, setPasswordData] = useState({
+    old_password: '',
+    new_password: '',
+    confirm_password: ''
+  });
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMessage(null);
+
+    if (passwordData.new_password !== passwordData.confirm_password) {
+      setMessage({ type: 'error', text: "New passwords don't match" });
+      return;
+    }
+
+    if (passwordData.new_password.length < 8) {
+      setMessage({ type: 'error', text: "Password must be at least 8 characters long" });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await api.put('/users/me/password', {
+        old_password: passwordData.old_password,
+        new_password: passwordData.new_password
+      });
+      setMessage({ type: 'success', text: "Password updated successfully" });
+      setPasswordData({ old_password: '', new_password: '', confirm_password: '' });
+    } catch (err: any) {
+      setMessage({ 
+        type: 'error', 
+        text: err.response?.data?.error || "Failed to update password" 
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+       <div>
+          <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
+          <p className="text-slate-500 mt-1">Manage your account preferences and security.</p>
+       </div>
+
+       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Sidebar Navigation */}
+          <div className="space-y-2">
+             <button className="w-full flex items-center gap-3 px-4 py-3 bg-white border border-slate-200 rounded-lg text-brand-600 font-medium shadow-sm">
+                <Shield size={20} />
+                Security
+             </button>
+             <button className="w-full flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
+                <User size={20} />
+                Profile
+             </button>
+             <button className="w-full flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-50 rounded-lg transition-colors">
+                <Bell size={20} />
+                Notifications
+             </button>
+          </div>
+
+          {/* Main Content Area */}
+          <div className="md:col-span-2 space-y-6">
+             <Card title="Change Password">
+                <form onSubmit={handlePasswordChange} className="space-y-4">
+                   <Input 
+                      label="Current Password" 
+                      type="password"
+                      value={passwordData.old_password}
+                      onChange={(e) => setPasswordData({...passwordData, old_password: e.target.value})}
+                      required
+                   />
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Input 
+                         label="New Password" 
+                         type="password"
+                         value={passwordData.new_password}
+                         onChange={(e) => setPasswordData({...passwordData, new_password: e.target.value})}
+                         required
+                      />
+                      <Input 
+                         label="Confirm New Password" 
+                         type="password"
+                         value={passwordData.confirm_password}
+                         onChange={(e) => setPasswordData({...passwordData, confirm_password: e.target.value})}
+                         required
+                      />
+                   </div>
+
+                   {message && (
+                      <div className={`p-3 rounded-lg text-sm ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                         {message.text}
+                      </div>
+                   )}
+
+                   <div className="flex justify-end pt-2">
+                      <Button type="submit" isLoading={loading} icon={<Save size={18} />}>
+                         Update Password
+                      </Button>
+                   </div>
+                </form>
+             </Card>
+          </div>
+       </div>
+    </div>
+  );
+};
+
+export default Settings;
+
+```
+
+## `src/services/api.ts`
+
+```typescript
+import axios from 'axios';
+
+// Create axios instance
+const api = axios.create({
+  baseURL: '/api', // Vite proxy will handle forwarding to http://localhost:3000
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  withCredentials: true, // Important for handling HTTP-only cookies
+});
+
+// Response interceptor
+api.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  async (error) => {
+    const originalRequest = error.config;
+    
+    // Handle 401 Unauthorized globally if needed (e.g., redirect to login)
+    // We avoid infinite loops by checking a flag
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      
+      // Optional: Clear any local state if you stored user info
+      // window.location.href = '/login'; 
+      // Note: Redirecting here might be abrupt, better handled in AuthContext or components
+    }
+    
+    // Normalize error message
+    const errorMessage = 
+      error.response?.data?.error || 
+      error.response?.data?.message || 
+      error.message || 
+      'Something went wrong';
+      
+    // You could attach the normalized message to the error object
+    error.formattedMessage = errorMessage;
+
+    return Promise.reject(error);
+  }
+);
+
+export default api;
 
 ```
 
@@ -2649,52 +3305,117 @@ export const getChatResponse = async (history: {role: string, parts: {text: stri
 }
 ```
 
-## `src/types.ts`
+## `src/types/index.ts`
 
 ```typescript
+export type Role = 'user' | 'admin' | 'creator';
+export type Level = 'beginner' | 'intermediate' | 'advanced';
+export type Status = 'draft' | 'published' | 'archived';
+export type ProgressStatus = 'not_started' | 'in_progress' | 'completed';
+export type Difficulty = 'easy' | 'medium' | 'hard';
+export type InterviewType = 'simulated' | 'prep_feedback';
+export type EventStatus = 'planned' | 'done' | 'missed' | 'cancelled';
+export type TemplateStyle = 'modern' | 'classic' | 'minimal';
+
 export interface User {
-  id: string;
-  name: string;
+  user_id: string;
   email: string;
-  role: 'student' | 'admin';
-  avatar: string;
+  full_name: string;
+  current_level: Level;
+  role: Role;
+  avatar_url: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Roadmap {
-  id: string;
+  roadmap_id: string;
   title: string;
-  description: string;
-  category: 'Frontend' | 'Backend' | 'Data Science' | 'Design';
-  progress: number;
-  totalModules: number;
-  completedModules: number;
-  image: string;
-  estimatedTime: string;
+  description: string | null;
+  category: string;
+  image_url: string | null;
+  status: Status;
+  created_at: string;
+  updated_at: string;
+  module_count?: number; // From list view
+  modules?: Module[];    // From detail view
+  created_by?: string;
 }
 
 export interface Module {
-  id: string;
+  module_id: string;
+  roadmap_id: string;
   title: string;
-  duration: string;
-  status: 'locked' | 'active' | 'completed';
-  type: 'video' | 'quiz' | 'project';
+  description: string | null;
+  content: string | null;
+  order_index: number;
+  estimated_hours: number;
+  created_at: string;
+  updated_at: string;
 }
 
-export interface Activity {
-  id: string;
-  user: string;
-  action: string;
-  target: string;
-  timestamp: string;
-  type: 'progress' | 'achievement' | 'comment';
+export interface UserProgress {
+  progress_id: string;
+  user_id: string;
+  module_id: string;
+  status: ProgressStatus;
+  completion_percentage: number;
+  started_at: string | null;
+  completed_at: string | null;
+  last_accessed_at: string;
+  created_at: string;
+  updated_at: string;
 }
 
-export interface Stat {
-  label: string;
-  value: string | number;
-  change: number;
-  period: string;
-  icon: string;
+export interface LearningEvent {
+  event_id: string;
+  user_id: string;
+  title: string;
+  description: string | null;
+  start_time: string; // ISO
+  end_time: string;   // ISO
+  status: EventStatus;
+  all_day?: boolean;
+  color?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Interview Interfaces
+export interface InterviewSession {
+  session_id: string;
+  user_id: string;
+  session_name: string;
+  interview_type: InterviewType;
+  questions: any; // JSON
+  user_answers: any | null; // JSON
+  ai_feedback: any | null; // JSON
+  score: number | null;
+  created_at: string;
+}
+
+// API Response Wrappers
+export interface ApiResponse<T> {
+  success: boolean;
+  data: T;
+  error: string | null;
+}
+
+export interface AuthResponse {
+  user_id: string;
+  email: string;
+  full_name: string;
+  current_level: Level;
+  role: Role;
+  avatar_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DashboardOverview {
+  enrolled_roadmaps: number;
+  completed_modules: number;
+  average_completion: string; // "0.00"
 }
 
 export enum InterviewStatus {
@@ -2725,8 +3446,21 @@ export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     return {
       server: {
-        port: 3000,
+        port: 5173,
         host: '0.0.0.0',
+        proxy: {
+          '/api': {
+            target: 'http://localhost:3000',
+            changeOrigin: true,
+            secure: false,
+          },
+          '/interviews': {
+            target: 'http://localhost:3000',
+            changeOrigin: true,
+            ws: true,
+            secure: false
+          }
+        }
       },
       plugins: [react(), tailwindcss()],
       define: {
@@ -2742,3 +3476,7 @@ export default defineConfig(({ mode }) => {
     };
 });
 ```
+
+---
+
+*Total files included: 30*

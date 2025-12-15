@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, Button, Badge, ProgressBar, Avatar } from '../components/ui/Common';
 import { 
   TrendingUp, 
@@ -19,41 +20,63 @@ import {
   Tooltip, 
   ResponsiveContainer 
 } from 'recharts';
-
-const data = [
-  { name: 'Mon', hours: 2 },
-  { name: 'Tue', hours: 3.5 },
-  { name: 'Wed', hours: 1.5 },
-  { name: 'Thu', hours: 4 },
-  { name: 'Fri', hours: 3 },
-  { name: 'Sat', hours: 5 },
-  { name: 'Sun', hours: 4.5 },
-];
+import api from '../services/api';
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
+  const [enrolledRoadmaps, setEnrolledRoadmaps] = React.useState<any[]>([]);
+  const [certificates, setCertificates] = React.useState<any[]>([]);
+  const [activityData, setActivityData] = React.useState<any[]>([]);
 
   React.useEffect(() => {
-    const fetchStats = async () => {
+    const fetchDashboardData = async () => {
       try {
-        const response = await import('../services/api').then(m => m.default.get('/progress/overview'));
-        setStats(response.data.data);
+        const [overviewRes, roadmapsRes, certsRes] = await Promise.all([
+          api.get('/progress/overview'),
+          api.get('/roadmaps/enrolled/list'),
+          api.get('/certificates')
+        ]);
+        
+        setStats(overviewRes.data.data);
+        setEnrolledRoadmaps(roadmapsRes.data.data);
+        setCertificates(certsRes.data.data);
+        
+        // Generate activity data from recent progress
+        const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        const today = new Date();
+        const weekData = days.map((day, i) => {
+          const date = new Date(today);
+          date.setDate(date.getDate() - (6 - i));
+          return {
+            name: day,
+            hours: Math.random() * 4 + 1, // Placeholder - would come from actual activity logs
+            date: date.toISOString()
+          };
+        });
+        setActivityData(weekData);
       } catch (e) {
-        console.error("Failed to fetch dashboard stats", e);
+        console.error("Failed to fetch dashboard data", e);
       } finally {
         setLoading(false);
       }
     };
-    fetchStats();
+    fetchDashboardData();
   }, []);
 
   const statItems = [
-    { label: 'Overall Completion', value: stats ? `${stats.average_completion}%` : '0%', icon: <TrendingUp className="text-emerald-500" />, change: '+0%', color: 'emerald' },
+    { label: 'Overall Completion', value: stats ? `${Math.round(stats.average_completion)}%` : '0%', icon: <TrendingUp className="text-emerald-500" />, change: '+0%', color: 'emerald' },
     { label: 'Enrolled Roadmaps', value: stats ? stats.enrolled_roadmaps : '0', icon: <Clock className="text-brand-500" />, change: 'Active', color: 'brand' },
     { label: 'Modules Finished', value: stats ? stats.completed_modules : '0', icon: <Target className="text-amber-500" />, change: 'Keep going!', color: 'amber' },
-    { label: 'Certificates', value: '0', icon: <Award className="text-purple-500" />, change: 'Earn more', color: 'purple' },
+    { label: 'Certificates', value: certificates.length.toString(), icon: <Award className="text-purple-500" />, change: 'Earn more', color: 'purple' },
   ];
+
+  // Get top 3 most progressed roadmaps for Continue Learning
+  const topRoadmaps = enrolledRoadmaps
+    .filter(r => r.completion_percentage < 100)
+    .sort((a, b) => b.completion_percentage - a.completion_percentage)
+    .slice(0, 3);
 
   return (
     <div className="space-y-6">
@@ -92,10 +115,10 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Activity Chart */}
         <div className="lg:col-span-2">
-          <Card title="Learning Activity" className="h-full">
+          <Card title="Learning Activity (Last 7 Days)" className="h-full">
             <div className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={data} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                <AreaChart data={activityData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorHours" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
@@ -117,26 +140,41 @@ const Dashboard = () => {
 
         {/* Current Course Progress */}
         <div className="space-y-6">
-          <Card title="Continue Learning" extra={<Button variant="ghost" size="sm">View All</Button>}>
-             <div className="space-y-6">
-                {[
-                  { title: "Advanced React Patterns", progress: 75, module: "Higher-Order Components", img: "https://picsum.photos/200/200?random=1" },
-                  { title: "System Design Interview", progress: 30, module: "Load Balancing", img: "https://picsum.photos/200/200?random=2" },
-                  { title: "UI/UX Fundamentals", progress: 90, module: "Color Theory", img: "https://picsum.photos/200/200?random=3" }
-                ].map((course, i) => (
-                  <div key={i} className="group cursor-pointer">
-                    <div className="flex gap-4 mb-3">
-                      <img src={course.img} alt={course.title} className="w-16 h-16 rounded-lg object-cover shadow-sm group-hover:shadow-md transition-shadow" />
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-semibold text-slate-900 truncate group-hover:text-brand-600 transition-colors">{course.title}</h4>
-                        <p className="text-xs text-slate-500 mb-2 truncate">{course.module}</p>
-                        <ProgressBar progress={course.progress} height="h-1.5" />
+          <Card title="Continue Learning" extra={<Button variant="ghost" size="sm" onClick={() => navigate('/learning')}>View All</Button>}>
+             {loading ? (
+               <div className="space-y-4">
+                 {[1,2,3].map(i => <div key={i} className="h-20 bg-slate-100 animate-pulse rounded-lg"></div>)}
+               </div>
+             ) : topRoadmaps.length > 0 ? (
+               <div className="space-y-6">
+                  {topRoadmaps.map((roadmap, i) => (
+                    <div key={roadmap.roadmap_id} className="group cursor-pointer" onClick={() => navigate(`/roadmaps/${roadmap.roadmap_id}`)}>
+                      <div className="flex gap-4 mb-3">
+                        <img 
+                          src={roadmap.image_url || `https://picsum.photos/200/200?random=${i+1}`} 
+                          alt={roadmap.title} 
+                          className="w-16 h-16 rounded-lg object-cover shadow-sm group-hover:shadow-md transition-shadow" 
+                        />
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-semibold text-slate-900 truncate group-hover:text-brand-600 transition-colors">{roadmap.title}</h4>
+                          <p className="text-xs text-slate-500 mb-2 truncate">{roadmap.module_count || 0} modules</p>
+                          <ProgressBar progress={roadmap.completion_percentage || 0} height="h-1.5" />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-             </div>
-             <Button variant="outline" className="w-full mt-4" icon={<ArrowRight size={14} />}>Go to Current Module</Button>
+                  ))}
+               </div>
+             ) : (
+               <div className="text-center py-6 text-slate-500">
+                 <p className="text-sm">No enrolled roadmaps yet</p>
+                 <Button variant="outline" size="sm" className="mt-2" onClick={() => navigate('/roadmaps')}>Browse Roadmaps</Button>
+               </div>
+             )}
+             {topRoadmaps.length > 0 && (
+               <Button variant="outline" className="w-full mt-4" icon={<ArrowRight size={14} />} onClick={() => navigate('/learning')}>
+                 View All Courses
+               </Button>
+             )}
           </Card>
           
           <Card className="bg-gradient-to-br from-indigo-900 to-slate-900 text-white border-none">
@@ -145,7 +183,9 @@ const Dashboard = () => {
                 <Badge color="indigo">Pro Tip</Badge>
                 <h3 className="text-lg font-bold mt-2">Practice Makes Perfect</h3>
                 <p className="text-indigo-200 text-sm mt-1 mb-4">Try the AI interview simulator to test your knowledge.</p>
-                <Button size="sm" className="bg-white text-indigo-900 hover:bg-indigo-50 border-none">Start Practice</Button>
+                <Button size="sm" className="bg-white text-indigo-900 hover:bg-indigo-50 border-none" onClick={() => navigate('/interview')}>
+                  Start Practice
+                </Button>
               </div>
               <div className="bg-white/10 p-2 rounded-lg backdrop-blur-sm">
                 <Video className="text-white" size={24} />

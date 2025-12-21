@@ -167,7 +167,7 @@ const Settings = () => {
                       <div>
                          <label className="block text-sm font-medium text-slate-700 mb-2">Current Level</label>
                          <select
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-200 focus:border-brand-500 outline-none"
+                            className="bg-white w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-brand-200 focus:border-brand-500 outline-none"
                             value={profileData.current_level}
                             onChange={(e) => setProfileData({...profileData, current_level: e.target.value})}
                          >

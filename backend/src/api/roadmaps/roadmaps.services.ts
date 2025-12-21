@@ -14,7 +14,12 @@ export async function listPublishedRoadmaps(category?: string) {
       status: true,
       created_at: true,
       updated_at: true,
-      modules: { select: { module_id: true } },
+      modules: { 
+        select: { 
+          module_id: true,
+          estimated_hours: true
+        } 
+      },
     },
     orderBy: { updated_at: 'desc' },
   });
@@ -28,6 +33,7 @@ export async function listPublishedRoadmaps(category?: string) {
     created_at: roadmap.created_at,
     updated_at: roadmap.updated_at,
     module_count: roadmap.modules.length,
+    total_hours: roadmap.modules.reduce((sum, m) => sum + Number(m.estimated_hours || 0), 0),
   }));
 }
 

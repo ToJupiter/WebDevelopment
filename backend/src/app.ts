@@ -59,7 +59,6 @@ app.use('/api/certificates', requireAuth, certificatesRouter);
 app.use('/api/cvs', requireAuth, cvsRouter);
 app.use('/api/exercises', requireAuth, exercisesRouter);
 app.use('/api/interviews', requireAuth, interviewsRouter);
-app.use('/api/modules/:moduleId', requireAuth, notesRouter);
 
 
 // app.use('/api/auth', authRouter);

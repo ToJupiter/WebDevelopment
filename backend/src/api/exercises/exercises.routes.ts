@@ -6,7 +6,8 @@ import {
   listExercisesHandler,
   submitExerciseHandler,
   updateExerciseHandler,
-  getExerciseHandler
+  getExerciseHandler,
+  getUserSubmissionsHandler
 } from './exercises.controller';
 import { validateExerciseCreation, validateExerciseSubmission, validateExerciseUpdate } from './exercises.validation';
 import { requireAuth, requireRole } from '@/middleware/authenticate';
@@ -15,8 +16,9 @@ import { Role } from '@/generated/prisma/client';
 
 const router: Router = Router();
 
-// User: Exercises (list, get detail)
+// User: Exercises (list, get detail, submissions)
 router.get('/', requireAuth, checkEnrollment, listExercisesHandler);
+router.get('/submissions/my', requireAuth, getUserSubmissionsHandler);
 router.get('/:exerciseId', requireAuth, getExerciseHandler);
 
 // Creator/ Admin: Exercises (create)

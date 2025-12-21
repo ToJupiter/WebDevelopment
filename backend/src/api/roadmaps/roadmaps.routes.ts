@@ -9,6 +9,7 @@ import {
 import { requireAuth, requireRole } from '@/middleware/authenticate';
 import { verifyRoadmapOwnership, checkOwnership, verifyModuleOwnership } from '@/middleware/ownership';
 import { Role } from '@/generated/prisma/client';
+import notesRouter from '../notes/notes.routes';
 
 const router: Router = Router();
 
@@ -30,5 +31,7 @@ router.post('/:roadmapId/modules', requireAuth, requireRole([Role.admin, Role.cr
 router.get('/:roadmapId/modules/:moduleId', requireAuth, getModuleHandler);
 router.put('/:roadmapId/modules/:moduleId', requireAuth, requireRole([Role.admin, Role.creator]), verifyModuleOwnership, updateModuleHandler);
 router.delete('/:roadmapId/modules/:moduleId', requireAuth, requireRole([Role.admin, Role.creator]), verifyModuleOwnership, deleteModuleHandler);
+
+router.use('/:roadmapId/modules/:moduleId/notes', notesRouter);
 
 export default router;

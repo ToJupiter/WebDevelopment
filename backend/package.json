@@ -7,7 +7,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "test:unit": "jest --testPathPattern='tests/.*validation|services|middleware|config'"
+    "test:unit": "jest --testPathPattern='tests/.*validation|services|middleware|config'",
+    "dev": "tsx src/server.ts"
   },
   "keywords": [],
   "author": "",

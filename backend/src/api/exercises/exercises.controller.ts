@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { createExercise, deleteExercise, listExercises, submitExercise, updateExercise } from './exercises.services';
+import { createExercise, deleteExercise, listExercises, submitExercise, updateExercise, getUserExerciseSubmissions } from './exercises.services';
 import { getExerciseById } from './exercises.services';
 
 function extractUserId(req: Request) {
@@ -118,5 +118,22 @@ export async function getExerciseHandler(req: Request, res: Response) {
     return res.status(200).json({ success: true, data: exercise });
   } catch (error) {
     return res.status(500).json({ success: false, error: 'Internal Server Error' });
+  }
+}
+
+export async function getUserSubmissionsHandler(req: Request, res: Response) {
+  try {
+    const userId = req.user?.user_id;
+    
+    if (!userId) {
+      return res.status(401).json({ success: false, data: null, error: 'Unauthorized' });
+    }
+
+    const moduleId = typeof req.query.module_id === 'string' ? req.query.module_id : undefined;
+    const submissions = await getUserExerciseSubmissions(userId, moduleId);
+    
+    return res.status(200).json({ success: true, data: submissions, error: null });
+  } catch (error) {
+    return res.status(500).json({ success: false, data: null, error: 'Internal Server Error' });
   }
 }

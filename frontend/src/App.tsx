@@ -9,6 +9,7 @@ import Interview from './pages/Interview';
 import Login from './pages/Login';
 import Learning from './pages/Learning';
 import LearningModule from './pages/LearningModule';
+import AINotesView from './pages/AINotesView';
 import Calendar from "./pages/Calendar";
 import CV from "./pages/CV";
 import Admin from "./pages/Admin";
@@ -43,6 +44,7 @@ const App = () => {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/roadmaps" element={<Roadmaps />} />
           <Route path="/roadmaps/:id" element={<RoadmapDetail />} />
+          <Route path="/roadmaps/:id/ai-notes" element={<AINotesView />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/interview" element={<Interview />} />
           <Route path="/learning" element={<Learning />} />

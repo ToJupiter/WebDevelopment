@@ -1,0 +1,74 @@
+Prompt:
+
+You will now read the files that I provided, using the information to craft us a slide with these specs:
+
+Tạo slide trình bày về tiến độ công việc BTL, nêu rõ danh sách các chức năng sẽ phát triển, công nghệ sử dụng, phân công công việc cho các thành viên, kết quả đã đạt được, khó khăn nếu có.
+
+1. Danh sách chức năng:
+Read the ThietKeBackend_full.md and you will see all of them in there, in the format of very detailed things listed.
+
+2. công nghệ sử dụng:
+Read the ThietKeBackend_full.md and you will see all of them in there, in the format of very detailed things listed.
+
+3. Phân chia công việc:
+Read the provided file for work division.
+
+4. Tiến độ:
+---
+SLIDE: Tiến độ công việc BTL (Tóm tắt)
+
+1) Danh sách chức năng (tóm tắt từ `ThietKeBackend_full.md`)
+- Authentication: register, login, change password, avatar upload
+- Roadmaps: list, detail, create/update/archive (admin), enroll
+- Modules: CRUD, module content, progress per module
+- Progress tracking: enroll, module progress, dashboard overview
+- AI features (AINotes): module AI chat, notes history, edit/delete user notes
+- Exercises: list, create, submit (open-ended)
+- Calendar / LearningEvents: CRUD, reminders
+- Interview practice: REST session CRUD + WebSocket real-time sessions, audio handling, AI feedback
+- CV Builder: CRUD, AI optimize section, PDF generation
+- Certificates: auto-issuance (trigger/cron) + manual issuance (admin)
+
+2) Công nghệ sử dụng (tóm tắt)
+- Backend: Node.js + Express.js with TypeScript
+- Database: MySQL with Prisma ORM (auto-generated types + migrations)
+- Auth: JWT stored in httpOnly cookies (stateless) + bcrypt for passwords
+- Validation: Zod
+- Logging: Winston
+- Real-time: WebSocket for interview practice
+- Storage: planned S3-compatible (DigitalOcean Spaces / S3) for uploads & PDFs
+- AI: OpenAI APIs (chat, Whisper for audio transcription)
+- DevOps: Docker, GitHub Actions (CI/CD), DigitalOcean as target infra
+
+3) Phân chia công việc (tổng hợp / đề xuất — không tìm thấy file phân công rõ ràng)
+Note: Repository/docs do not contain an explicit "phân công công việc" file. Dưới đây là phân công đề xuất dựa trên modules của project.
+- Frontend (React + Tailwind): 2 người — UI, SPA routing, auth flow, WebSocket client, CV templates
+- Backend API (Express + Prisma): 2 người — auth, roadmaps/modules, progress, exercises, calendar, CV PDF generation
+- Real-time & AI integration: 1 người — WebSocket interview flow, audio handling, OpenAI calls, caching & quotas
+- DevOps & Database: 1 người — Docker, CI/CD pipelines, MySQL infra, storage (Spaces/S3)
+- QA & Docs: 1 người — test cases (Mocha/Chai), API docs (Swagger), README and deployment guides
+
+4) Tiến độ hiện tại (dựa trên mã nguồn trong `backend/`)
+- Xây dựng skeleton Express + TypeScript: DONE (`src/app.ts`, `src/server.ts`)
+- Module `auth.register`: DONE (routes, controller, service implemented; Prisma schema for `User` exists)
+	- Password hashing with bcrypt implemented
+	- Prisma client present and `User` model defined in `prisma/schema.prisma`
+- Basic routing & validation middleware wired (validateRequest middleware present)
+- Major schema design: DONE (Prisma models for Users, Roadmaps, Modules, CVs, Certificates, InterviewSessions, AINotes, etc.)
+
+In progress / Next steps observed:
+- Implement other route handlers and services (roadmaps, modules, cv, interviews, certificates, calendar, progress)
+- WebSocket interview server & audio handling not yet implemented in codebase
+- File upload (avatars, PDFs) storage adapter (S3/Spaces) not yet wired
+- AI service wrappers (OpenAI) and PDF generation service missing
+
+5) Kết quả đã đạt được
+- Project scaffold with TypeScript + Express is functional and running
+- Auth register flow end-to-end (validation, hashing, Prisma create) implemented
+- Complete Prisma schema and generator configured — good foundation for DB-driven dev
+
+6) Khó khăn / Rủi ro
+- File upload/storage backend not decided — affects avatar & PDF features
+- Real-time audio handling (transcription + streaming) is complex — requires careful design
+- JSON-heavy schema (CVs, InterviewSessions) may need indexing/optimizations for scale
+- AI cost & latency: needs caching, quotas, and streaming optimization
